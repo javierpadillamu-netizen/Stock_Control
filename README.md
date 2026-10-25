@@ -6,9 +6,39 @@ App web para el celular que digitaliza el registro diario de tres flujos:
 - **Stock:** stock por turno y producto, en Tn
 - **Pits:** cantidad de producto por turno y pit, en Tn
 
-Cada registro guarda quién lo ingresó. Los registros se pueden corregir desde el historial; al hacerlo quedan marcados como **Modificado**, con el nombre de quien editó y la fecha. Desde el historial se exportan a Excel por rango de fechas.
+Cada registro guarda quién lo ingresó. Los registros se pueden corregir desde el historial; al hacerlo quedan marcados como **Modificado**, con el nombre de quien editó y la fecha.
 
-Los datos se guardan en listas de **SharePoint** (Microsoft 365), así que Power BI se conecta a ellas directamente. Sin configuración, la app corre en **modo demo** y guarda los datos solo en el navegador.
+Los datos se guardan en **Firebase (Firestore)**, así que todas las personas que abren el link comparten la misma base de datos. Sin configuración, la app corre en **modo demo** y guarda los datos solo en el navegador.
+
+Desde el historial se exporta a Excel una lista, o **todas las listas en un solo archivo** con las mismas hojas y columnas que `Registros Water Stock Pits.xlsx`.
+
+## Configurar Firebase (una vez)
+
+1. Entra a [console.firebase.google.com](https://console.firebase.google.com) con una cuenta de Google y crea un proyecto (Google Analytics no hace falta). El plan gratuito Spark alcanza.
+2. **Firestore Database > Crear base de datos**, en modo de producción, en una ubicación cercana (por ejemplo `australia-southeast1`).
+3. **Firestore Database > Reglas:** reemplaza el contenido por el de `firestore.rules` y pulsa **Publicar**.
+4. **Authentication > Comenzar > Método de acceso:** habilita **Anónimo**. La app abre una sesión anónima para poder usar la base de datos.
+5. **Authentication > Configuración > Dominios autorizados:** agrega `tu-usuario.github.io`.
+6. **Configuración del proyecto > Tus apps > Web (`</>`):** registra la app y copia `apiKey`, `authDomain`, `projectId` y `appId` de `firebaseConfig` en la constante `FIREBASE` de `src/config.ts`.
+
+Estos valores no son secretos y pueden ir en GitHub: la base de datos la protegen las reglas.
+
+### Qué permiten las reglas
+
+- Leer y registrar datos: cualquier persona que abra la app.
+- Corregir un registro: solo marcándolo como modificado, con el nombre de quien edita. No se puede cambiar quién lo ingresó ni cuándo.
+- Borrar registros: nadie desde la app. Se borran en la consola de Firebase.
+
+Como cualquiera con el link puede registrar datos, compártelo solo con los equipos que lo usan.
+
+## Publicar con GitHub Pages
+
+El flujo `.github/workflows/deploy.yml` prueba, compila y publica la app en cada push a `main`.
+
+1. En el repositorio, ve a **Settings > Pages** y elige **GitHub Actions** como origen.
+2. Haz push a `main`. En la pestaña **Actions** se ve el avance; al terminar, la app queda en `https://tu-usuario.github.io/<repositorio>/`.
+
+En el celular, abre la dirección y elige **Agregar a pantalla de inicio** para usarla como app.
 
 ## Probarla en tu computador
 
@@ -16,35 +46,18 @@ Necesitas Node.js 20 o superior.
 
 ```bash
 npm install
-npm run dev
-```
-
-Abre la dirección que muestra la terminal. Sin archivo `.env.local` funciona en modo demo.
-
-```bash
+npm run dev      # modo demo, sin Firebase
 npm test         # pruebas de validación
 npm run build    # versión para publicar, en dist/
 ```
 
-## Conectarla a Microsoft 365
+Para probar con Firebase sin tocar los datos reales, usa los emuladores (requieren Java):
 
-1. **Crear las listas de SharePoint.** Ejecuta `sharepoint/crear-listas.ps1` (las instrucciones están al inicio del archivo) o créalas a mano con las columnas que define `src/schema.ts`. Los nombres internos de las columnas deben coincidir.
-2. **Registrar la app en Entra ID** (lo hace un administrador en portal.azure.com > Entra ID > Registros de aplicaciones > Nuevo registro):
-   - Tipo de cuenta: solo este directorio.
-   - URI de redirección: plataforma **Aplicación de página única (SPA)**, con la dirección donde se publique la app (por ejemplo `https://usuario.github.io/registros-produccion/`) y `http://localhost:5173/` para pruebas.
-   - Permisos de API: Microsoft Graph, delegado, `Sites.ReadWrite.All`.
-3. **Configurar la app.** Copia `.env.example` como `.env.local` y completa el Id. de inquilino, el Id. de aplicación y el sitio (`tuempresa.sharepoint.com:/sites/Produccion`). Ninguno de estos valores es secreto.
+```bash
+npx firebase-tools emulators:start --only firestore,auth --project demo-registros
+```
 
-Los usuarios entran con su cuenta de la empresa y deben ser miembros del sitio de SharePoint.
-
-## Publicarla con GitHub Pages
-
-El flujo `.github/workflows/deploy.yml` prueba, compila y publica la app en cada push a `main`.
-
-1. En el repositorio, ve a **Settings > Pages** y elige **GitHub Actions** como origen.
-2. En **Settings > Secrets and variables > Actions > Variables**, crea `VITE_TENANT_ID`, `VITE_CLIENT_ID` y `VITE_SHAREPOINT_SITE`. Si no las creas, se publica en modo demo.
-
-En el celular, abre la dirección publicada y elige **Agregar a pantalla de inicio** para usarla como app.
+En otra terminal, crea `.env.local` con `VITE_FIREBASE_EMULATOR=true`, `VITE_FIREBASE_API_KEY=fake`, `VITE_FIREBASE_PROJECT_ID=demo-registros` y `VITE_FIREBASE_APP_ID=1:1:web:1`, y ejecuta `npm run dev`.
 
 ## Estructura
 
@@ -53,14 +66,16 @@ En el celular, abre la dirección publicada y elige **Agregar a pantalla de inic
 | `src/schema.ts` | Listas, campos, opciones (áreas, ponds, productos) y validaciones |
 | `src/App.tsx` | Pantallas y navegación |
 | `src/components/` | Formularios, Ponds e historial con edición |
-| `src/data/sharepointStore.ts` | Lectura y escritura en SharePoint con Microsoft Graph |
+| `src/data/firebaseStore.ts` | Lectura y escritura en Firestore |
 | `src/data/localStore.ts` | Modo demo en el navegador |
 | `src/data/exportExcel.ts` | Exportación a Excel |
-| `sharepoint/crear-listas.ps1` | Script que crea las listas en SharePoint |
+| `firestore.rules` | Reglas de seguridad de la base de datos |
+| `src/config.ts` | Configuración de Firebase |
 
-Para agregar un área, un pond o un producto, edita `src/schema.ts` y agrega la misma opción a la columna de SharePoint.
+Para agregar un área, un pond o un producto, edita `src/schema.ts`.
 
 ## Notas
 
-- La hora se guarda como texto `hh:mm`, porque SharePoint no tiene un tipo de dato solo para la hora.
-- El historial carga todos los registros de la lista y filtra por fecha en el celular. Alcanza para varios miles de registros; si las listas crecen mucho, conviene indexar la columna Fecha y filtrar en el servidor.
+- Cada lista es una colección de Firestore: `irrigation`, `river`, `wastewater`, `ponds`, `stock` y `pits`.
+- La fecha se guarda como texto `AAAA-MM-DD` y la hora como `hh:mm`, para que no cambien con la zona horaria.
+- El historial pide a Firebase solo los registros del rango de fechas elegido.

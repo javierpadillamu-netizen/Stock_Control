@@ -58,9 +58,9 @@ export interface ListDef {
   fields: FieldDef[];
 }
 
-const fecha: FieldDef = { key: "Fecha", label: "Fecha", type: "date" };
-const hora: FieldDef = { key: "Hora", label: "Hora", type: "time" };
-const turno: FieldDef = { key: "Turno", label: "Turno", type: "choice", options: TURNOS };
+const fecha: FieldDef = { key: "Fecha", label: "Date", type: "date" };
+const hora: FieldDef = { key: "Hora", label: "Time", type: "time" };
+const turno: FieldDef = { key: "Turno", label: "Shift", type: "choice", options: TURNOS };
 
 export const LISTS: Record<ListKey, ListDef> = {
   irrigation: {
@@ -69,12 +69,12 @@ export const LISTS: Record<ListKey, ListDef> = {
     flow: "Water",
     fields: [
       fecha,
-      { key: "HoraInicio", label: "Hora inicio", type: "time" },
-      { key: "HoraTermino", label: "Hora término", type: "time" },
-      { key: "Area", label: "Área", type: "choice", options: Object.keys(AREAS) },
+      { key: "HoraInicio", label: "Start time", type: "time" },
+      { key: "HoraTermino", label: "End time", type: "time" },
+      { key: "Area", label: "Area", type: "choice", options: Object.keys(AREAS) },
       {
         key: "Subarea",
-        label: "Subárea",
+        label: "Sub-area",
         type: "choice",
         dependsOn: { key: "Area", options: AREAS },
       },
@@ -101,7 +101,7 @@ export const LISTS: Record<ListKey, ListDef> = {
       fecha,
       hora,
       { key: "Pond", label: "Pond", type: "choice", options: PONDS },
-      { key: "ProfundidadCm", label: "Profundidad disponible (cm)", type: "number" },
+      { key: "ProfundidadCm", label: "Available depth (cm)", type: "number" },
     ],
   },
   stock: {
@@ -111,8 +111,8 @@ export const LISTS: Record<ListKey, ListDef> = {
     fields: [
       fecha,
       turno,
-      { key: "Producto", label: "Producto", type: "choice", options: PRODUCTOS },
-      { key: "StockTn", label: "Stock (Tn)", type: "number" },
+      { key: "Producto", label: "Product", type: "choice", options: PRODUCTOS },
+      { key: "StockTn", label: "Stock (t)", type: "number" },
     ],
   },
   pits: {
@@ -122,8 +122,8 @@ export const LISTS: Record<ListKey, ListDef> = {
     fields: [
       fecha,
       turno,
-      { key: "NumeroPit", label: "Número de pit", type: "choice", options: PITS },
-      { key: "CantidadTn", label: "Cantidad de producto (Tn)", type: "number" },
+      { key: "NumeroPit", label: "Pit number", type: "choice", options: PITS },
+      { key: "CantidadTn", label: "Product quantity (t)", type: "number" },
     ],
   },
 };
@@ -156,15 +156,15 @@ export function validate(list: ListDef, values: Fields): Record<string, string> 
   for (const f of list.fields) {
     const v = values[f.key];
     if (v === null || v === undefined || v === "") {
-      errors[f.key] = "Falta este dato";
+      errors[f.key] = "Required";
       continue;
     }
-    if (f.type === "time" && !TIME_RE.test(String(v))) errors[f.key] = "Usa el formato hh:mm";
-    if (f.type === "date" && !DATE_RE.test(String(v))) errors[f.key] = "Fecha no válida";
+    if (f.type === "time" && !TIME_RE.test(String(v))) errors[f.key] = "Use the hh:mm format";
+    if (f.type === "date" && !DATE_RE.test(String(v))) errors[f.key] = "Enter a valid date";
     if (f.type === "number" && (typeof v !== "number" || !Number.isFinite(v) || v < 0))
-      errors[f.key] = "Ingresa un número mayor o igual a 0";
+      errors[f.key] = "Enter a number of 0 or more";
     if (f.type === "choice" && !optionsFor(f, values).includes(String(v)))
-      errors[f.key] = "Elige una opción de la lista";
+      errors[f.key] = "Select an option from the list";
   }
   return errors;
 }

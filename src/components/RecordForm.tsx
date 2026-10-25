@@ -33,7 +33,7 @@ export function RecordForm({ list, nombre, editing, onSaved }: Props) {
     const errs = validate(list, values);
     setErrors(errs);
     if (Object.keys(errs).length > 0) {
-      setMessage({ ok: false, text: "Revisa los datos marcados" });
+      setMessage({ ok: false, text: "Check the highlighted fields" });
       return;
     }
     setSaving(true);
@@ -41,7 +41,7 @@ export function RecordForm({ list, nombre, editing, onSaved }: Props) {
       const item = editing
         ? await store.update(list, editing.id, editedRecordFields(values, nombre))
         : await store.create(list, newRecordFields(values, nombre));
-      setMessage({ ok: true, text: editing ? "Cambios guardados. El registro queda marcado como modificado." : "Registro guardado" });
+      setMessage({ ok: true, text: editing ? "Changes saved. The record is now marked as modified." : "Record saved" });
       if (!editing) {
         // Mantiene fecha y opciones; limpia los numeros para el siguiente registro
         const next = { ...draft };
@@ -50,7 +50,7 @@ export function RecordForm({ list, nombre, editing, onSaved }: Props) {
       }
       onSaved(item);
     } catch (e) {
-      setMessage({ ok: false, text: e instanceof Error ? e.message : "No se pudo guardar" });
+      setMessage({ ok: false, text: e instanceof Error ? e.message : "Could not save. Check your connection and try again." });
     } finally {
       setSaving(false);
     }
@@ -69,7 +69,7 @@ export function RecordForm({ list, nombre, editing, onSaved }: Props) {
       ))}
       {message && <p className={message.ok ? "notice ok" : "notice bad"}>{message.text}</p>}
       <button type="submit" className="primary" disabled={saving}>
-        {saving ? "Guardando…" : editing ? "Guardar cambios" : "Guardar"}
+        {saving ? "Saving…" : editing ? "Save changes" : "Save"}
       </button>
     </form>
   );

@@ -1,0 +1,35 @@
+rules_version = '2';
+
+// Reglas de la base de datos. Se pegan en Firebase > Firestore Database > Reglas.
+// Cualquier persona con el link de la app puede leer y registrar datos (sesion anonima),
+// pero nadie puede borrar registros ni cambiar quien los ingreso.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function esLista(lista) {
+      return lista in ['irrigation', 'river', 'wastewater', 'ponds', 'stock', 'pits'];
+    }
+
+    match /{lista}/{registro} {
+      allow read: if request.auth != null && esLista(lista);
+
+      // Un registro nuevo lleva el nombre de quien lo ingresa y no esta modificado
+      allow create: if request.auth != null && esLista(lista)
+        && request.resource.data.Title is string
+        && request.resource.data.Title.size() > 0
+        && request.resource.data.Modificado == false
+        && request.resource.data.Fecha is string
+        && request.resource.data.createdAt == request.time;
+
+      // Una correccion queda marcada como modificada, con nombre y fecha,
+      // y no puede cambiar quien lo ingreso ni cuando
+      allow update: if request.auth != null && esLista(lista)
+        && request.resource.data.Modificado == true
+        && request.resource.data.ModificadoPor is string
+        && request.resource.data.ModificadoPor.size() > 0
+        && request.resource.data.Title == resource.data.Title
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if false;
+    }
+  }
+}

@@ -16,7 +16,7 @@ export function PondsForm({ nombre }: { nombre: string }) {
   async function save() {
     const filled = PONDS.filter((p) => (cm[p] ?? "").trim() !== "");
     if (filled.length === 0) {
-      setMessage({ ok: false, text: "Ingresa al menos un pond" });
+      setMessage({ ok: false, text: "Enter at least one pond" });
       return;
     }
     const records = filled.map((p) => ({
@@ -35,9 +35,9 @@ export function PondsForm({ nombre }: { nombre: string }) {
     try {
       for (const r of records) await store.create(list, newRecordFields(r, nombre));
       setCm({});
-      setMessage({ ok: true, text: `${records.length} ponds guardados` });
+      setMessage({ ok: true, text: `${records.length} ${records.length === 1 ? "pond" : "ponds"} saved` });
     } catch (e) {
-      setMessage({ ok: false, text: e instanceof Error ? e.message : "No se pudo guardar" });
+      setMessage({ ok: false, text: e instanceof Error ? e.message : "Could not save. Check your connection and try again." });
     } finally {
       setSaving(false);
     }
@@ -53,15 +53,15 @@ export function PondsForm({ nombre }: { nombre: string }) {
     >
       <div className="row">
         <div className="field">
-          <label htmlFor="p-fecha">Fecha</label>
+          <label htmlFor="p-fecha">Date</label>
           <input id="p-fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
         </div>
         <div className="field">
-          <label htmlFor="p-hora">Hora</label>
+          <label htmlFor="p-hora">Time</label>
           <input id="p-hora" type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
         </div>
       </div>
-      <p className="hint">Profundidad disponible en cm. Deja vacío el pond que no midas.</p>
+      <p className="hint">Available depth in cm. Leave blank any pond you did not measure.</p>
       <div className="ponds">
         {PONDS.map((p) => (
           <label key={p} className="pond">
@@ -82,7 +82,7 @@ export function PondsForm({ nombre }: { nombre: string }) {
       </div>
       {message && <p className={message.ok ? "notice ok" : "notice bad"}>{message.text}</p>}
       <button type="submit" className="primary" disabled={saving}>
-        {saving ? "Guardando…" : "Guardar"}
+        {saving ? "Saving…" : "Save"}
       </button>
     </form>
   );

@@ -15,7 +15,7 @@ export function FieldInput({ field, value, values, error, onChange }: Props) {
     const options = optionsFor(field, values);
     input = (
       <select id={id} value={value} onChange={(e) => onChange(e.target.value)} disabled={options.length === 0}>
-        <option value="">{options.length === 0 ? "Elige primero el área" : "Elige una opción"}</option>
+        <option value="">{options.length === 0 ? "Select an area first" : "Select…"}</option>
         {options.map((o) => (
           <option key={o} value={o}>
             {o}

@@ -1,8 +1,6 @@
-import { useEffect, useState } from "react";
-import type { AccountInfo } from "@azure/msal-browser";
+import { useState } from "react";
 import { isDemo } from "./config";
 import { LISTS, type ListKey } from "./schema";
-import { initAuth, login, logout } from "./data/auth";
 import { RecordForm } from "./components/RecordForm";
 import { PondsForm } from "./components/PondsForm";
 import { History } from "./components/History";
@@ -14,11 +12,11 @@ type Screen =
   | { s: "ponds" }
   | { s: "history"; list: ListKey };
 
-const WATER: { list: ListKey; label: string }[] = [
-  { list: "irrigation", label: "Irrigation" },
-  { list: "river", label: "River" },
-  { list: "wastewater", label: "Waste Water" },
-  { list: "ponds", label: "Ponds" },
+const WATER: { list: ListKey; label: string; hint: string }[] = [
+  { list: "irrigation", label: "Irrigation", hint: "Readings by area and sub-area" },
+  { list: "river", label: "River", hint: "River water intake" },
+  { list: "wastewater", label: "Waste Water", hint: "Waste water volume" },
+  { list: "ponds", label: "Ponds", hint: "Available depth for all 12 ponds" },
 ];
 
 function loadName() {
@@ -33,43 +31,26 @@ function saveName(n: string) {
   try {
     localStorage.setItem("registros:nombre", n);
   } catch {
-    // Sin almacenamiento local solo se pierde el nombre recordado
+    // Without local storage only the remembered name is lost
   }
 }
 
+function Tile({ label, hint, onClick }: { label: string; hint: string; onClick: () => void }) {
+  return (
+    <button className="tile" onClick={onClick}>
+      <span className="tile-text">
+        <span className="tile-label">{label}</span>
+        <span className="tile-hint">{hint}</span>
+      </span>
+      <span className="chevron" aria-hidden="true">›</span>
+    </button>
+  );
+}
+
 export default function App() {
-  const [ready, setReady] = useState(isDemo);
-  const [account, setAccount] = useState<AccountInfo | null>(null);
-  const [authError, setAuthError] = useState<string | null>(null);
   const [nombre, setNombre] = useState(loadName);
   const [screen, setScreen] = useState<Screen>({ s: "home" });
   const [nameError, setNameError] = useState(false);
-
-  useEffect(() => {
-    if (isDemo) return;
-    initAuth()
-      .then((acc) => {
-        setAccount(acc);
-        if (acc && !loadName()) setNombre(acc.name ?? "");
-      })
-      .catch((e) => setAuthError(e instanceof Error ? e.message : String(e)))
-      .finally(() => setReady(true));
-  }, []);
-
-  if (!ready) return <div className="app"><p className="hint">Cargando…</p></div>;
-
-  if (!isDemo && !account) {
-    return (
-      <div className="app">
-        <header><h1>Registros de producción</h1></header>
-        <main>
-          <p>Inicia sesión con tu cuenta de la empresa para registrar datos.</p>
-          {authError && <p className="notice bad">{authError}</p>}
-          <button className="primary" onClick={() => void login()}>Iniciar sesión con Microsoft</button>
-        </main>
-      </div>
-    );
-  }
 
   function go(next: Screen) {
     if (next.s !== "home" && next.s !== "history" && !nombre.trim()) {
@@ -87,46 +68,51 @@ export default function App() {
       ? (LISTS[screen.s === "ponds" ? "ponds" : screen.list].flow === "Water" ? { s: "water" as const } : { s: "home" as const })
       : { s: "home" as const };
 
-  let title = "Registros de producción";
+  let title = "Production Records";
+  let section: string | null = null;
   let body;
   if (screen.s === "home") {
     body = (
       <>
         <div className={nameError ? "field has-error" : "field"}>
-          <label htmlFor="nombre">Tu nombre</label>
+          <label htmlFor="nombre">Your name</label>
           <input
             id="nombre"
             value={nombre}
             autoComplete="name"
+            placeholder="First and last name"
             onChange={(e) => {
               setNombre(e.target.value);
               setNameError(false);
             }}
           />
-          {nameError && <p className="error">Escribe tu nombre antes de continuar</p>}
+          {nameError && <p className="error">Enter your name to continue</p>}
         </div>
+        <h2 className="section-label">Select a flow</h2>
         <div className="tiles">
-          <button className="tile water" onClick={() => go({ s: "water" })}>Water</button>
-          <button className="tile stock" onClick={() => go({ s: "form", list: "stock" })}>Stock</button>
-          <button className="tile pits" onClick={() => go({ s: "form", list: "pits" })}>Pits</button>
+          <Tile label="Water" hint="Irrigation, River, Waste Water, Ponds" onClick={() => go({ s: "water" })} />
+          <Tile label="Stock" hint="Product stock by shift" onClick={() => go({ s: "form", list: "stock" })} />
+          <Tile label="Pits" hint="Product quantity by pit and shift" onClick={() => go({ s: "form", list: "pits" })} />
         </div>
-        <button className="link" onClick={() => go({ s: "history", list: "irrigation" })}>Ver y editar registros</button>
+        <button className="link" onClick={() => go({ s: "history", list: "irrigation" })}>View and edit records</button>
       </>
     );
   } else if (screen.s === "water") {
     title = "Water";
     body = (
-      <div className="tiles">
-        {WATER.map((w) => (
-          <button key={w.list} className="tile water" onClick={() => go(w.list === "ponds" ? { s: "ponds" } : { s: "form", list: w.list })}>
-            {w.label}
-          </button>
-        ))}
-      </div>
+      <>
+        <h2 className="section-label">Select a measurement</h2>
+        <div className="tiles">
+          {WATER.map((w) => (
+            <Tile key={w.list} label={w.label} hint={w.hint} onClick={() => go(w.list === "ponds" ? { s: "ponds" } : { s: "form", list: w.list })} />
+          ))}
+        </div>
+      </>
     );
   } else if (screen.s === "form" || screen.s === "ponds") {
     const key: ListKey = screen.s === "ponds" ? "ponds" : screen.list;
     title = LISTS[key].title;
+    section = LISTS[key].flow === "Water" ? "Water" : null;
     body = (
       <>
         {screen.s === "ponds" ? (
@@ -134,16 +120,16 @@ export default function App() {
         ) : (
           <RecordForm key={key} list={LISTS[key]} nombre={nombre.trim()} onSaved={() => {}} />
         )}
-        <button className="link" onClick={() => go({ s: "history", list: key })}>Ver registros de {LISTS[key].title}</button>
+        <button className="link" onClick={() => go({ s: "history", list: key })}>View {LISTS[key].title} records</button>
       </>
     );
   } else {
-    title = "Registros";
+    title = "Records";
     const current = screen.list;
     body = (
       <>
         <div className="field">
-          <label htmlFor="h-list">Lista</label>
+          <label htmlFor="h-list">Record type</label>
           <select id="h-list" value={current} onChange={(e) => setScreen({ s: "history", list: e.target.value as ListKey })}>
             {Object.values(LISTS).map((l) => (
               <option key={l.key} value={l.key}>{l.flow === "Water" ? `Water · ${l.title}` : l.title}</option>
@@ -151,7 +137,7 @@ export default function App() {
           </select>
         </div>
         {!nombre.trim() ? (
-          <p className="notice bad">Vuelve al inicio y escribe tu nombre para poder editar.</p>
+          <p className="notice bad">Go back and enter your name to view and edit records.</p>
         ) : (
           <History list={LISTS[current]} nombre={nombre.trim()} />
         )}
@@ -162,13 +148,15 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        {back && <button className="back" aria-label="Volver" onClick={() => setScreen(back)}>‹</button>}
-        <h1>{title}</h1>
-        {!isDemo && account && screen.s === "home" && (
-          <button className="link small" onClick={() => void logout()}>Salir</button>
-        )}
+        <div className="header-inner">
+          {back && <button className="back" aria-label="Back" onClick={() => setScreen(back)}>‹</button>}
+          <div className="header-titles">
+            {section && <span className="eyebrow">{section}</span>}
+            <h1>{title}</h1>
+          </div>
+        </div>
       </header>
-      {isDemo && <p className="demo">Modo demo: los datos se guardan solo en este navegador.</p>}
+      {isDemo && <p className="demo">Demo mode: records are saved in this browser only.</p>}
       <main>{body}</main>
     </div>
   );
