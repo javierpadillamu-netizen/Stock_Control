@@ -4,16 +4,26 @@ import type { Store } from "./store";
 // Modo demo: guarda en localStorage del navegador. Sirve para probar la app sin SharePoint.
 const keyFor = (list: ListDef) => `registros:${list.key}`;
 
+// Si el navegador no permite localStorage, los datos quedan en memoria mientras la pagina este abierta
+const memory = new Map<string, RecordItem[]>();
+
 function read(list: ListDef): RecordItem[] {
   try {
-    return JSON.parse(localStorage.getItem(keyFor(list)) ?? "[]") as RecordItem[];
+    const raw = localStorage.getItem(keyFor(list));
+    if (raw) return JSON.parse(raw) as RecordItem[];
   } catch {
-    return [];
+    // se usa la copia en memoria
   }
+  return [...(memory.get(keyFor(list)) ?? [])];
 }
 
 function write(list: ListDef, items: RecordItem[]) {
-  localStorage.setItem(keyFor(list), JSON.stringify(items));
+  memory.set(keyFor(list), items);
+  try {
+    localStorage.setItem(keyFor(list), JSON.stringify(items));
+  } catch {
+    // solo queda en memoria
+  }
 }
 
 export const localStore: Store = {
