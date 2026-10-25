@@ -1,0 +1,180 @@
+// Definicion de los registros de cada flujo. Las claves (key) son los nombres
+// internos de las columnas en SharePoint, los mismos que crea crear-listas.ps1.
+
+export const TURNOS = ["Am", "Day", "Night"];
+
+export const AREAS: Record<string, string[]> = {
+  Argyle: ["B1", "B2", "B3", "B4", "B5", "B6"],
+  Forestry: ["C1", "C2"],
+  "Irrigation Ride": ["D1"],
+  "Western Paddocks": ["F1", "F2", "G1", "G2"],
+  "Swan Gully South": ["A1", "A2", "A3", "A4", "H1", "I1", "J1"],
+  "Swan Gully North": ["H2", "H3", "I2", "J2"],
+};
+
+export const PONDS = [
+  "Anaerobic Pond 1",
+  "Anaerobic Pond 2",
+  "Anaerobic Pond 3",
+  "Facultative Pond 4",
+  "Aeration Pond 5",
+  "Cover Anaerobic Lagoon G1",
+  "Cover Anaerobic Lagoon G2",
+  "Cover Anaerobic Lagoon G3",
+  "WWS Pond 10",
+  "Lagoon 7",
+  "Lagoon 8",
+  "Lagoon 9",
+];
+
+export const PRODUCTOS = [
+  "Poultry Meal (PM)",
+  "Mixed Species (MBM)",
+  "Tallow (MST)",
+  "Poultry Oil (PO)",
+  "Feather Meal (FM)",
+  "Blood Meal (BM)",
+];
+
+export const PITS = ["1", "2", "3", "4", "5", "6", "7", "8"];
+
+export type FieldType = "date" | "time" | "number" | "choice";
+
+export interface FieldDef {
+  key: string;
+  label: string;
+  type: FieldType;
+  options?: string[];
+  // Para una opcion que depende de otra (Subarea depende de Area)
+  dependsOn?: { key: string; options: Record<string, string[]> };
+}
+
+export type ListKey = "irrigation" | "river" | "wastewater" | "ponds" | "stock" | "pits";
+
+export interface ListDef {
+  key: ListKey;
+  title: string; // nombre de la lista en SharePoint
+  flow: "Water" | "Stock" | "Pits";
+  fields: FieldDef[];
+}
+
+const fecha: FieldDef = { key: "Fecha", label: "Fecha", type: "date" };
+const hora: FieldDef = { key: "Hora", label: "Hora", type: "time" };
+const turno: FieldDef = { key: "Turno", label: "Turno", type: "choice", options: TURNOS };
+
+export const LISTS: Record<ListKey, ListDef> = {
+  irrigation: {
+    key: "irrigation",
+    title: "Irrigation",
+    flow: "Water",
+    fields: [
+      fecha,
+      { key: "HoraInicio", label: "Hora inicio", type: "time" },
+      { key: "HoraTermino", label: "Hora término", type: "time" },
+      { key: "Area", label: "Área", type: "choice", options: Object.keys(AREAS) },
+      {
+        key: "Subarea",
+        label: "Subárea",
+        type: "choice",
+        dependsOn: { key: "Area", options: AREAS },
+      },
+      { key: "Ml", label: "Ml", type: "number" },
+    ],
+  },
+  river: {
+    key: "river",
+    title: "River",
+    flow: "Water",
+    fields: [fecha, hora, { key: "Ml", label: "River Water (Ml)", type: "number" }],
+  },
+  wastewater: {
+    key: "wastewater",
+    title: "Waste Water",
+    flow: "Water",
+    fields: [fecha, hora, { key: "Ml", label: "Waste Water (Ml)", type: "number" }],
+  },
+  ponds: {
+    key: "ponds",
+    title: "Ponds",
+    flow: "Water",
+    fields: [
+      fecha,
+      hora,
+      { key: "Pond", label: "Pond", type: "choice", options: PONDS },
+      { key: "ProfundidadCm", label: "Profundidad disponible (cm)", type: "number" },
+    ],
+  },
+  stock: {
+    key: "stock",
+    title: "Stock",
+    flow: "Stock",
+    fields: [
+      fecha,
+      turno,
+      { key: "Producto", label: "Producto", type: "choice", options: PRODUCTOS },
+      { key: "StockTn", label: "Stock (Tn)", type: "number" },
+    ],
+  },
+  pits: {
+    key: "pits",
+    title: "Pits",
+    flow: "Pits",
+    fields: [
+      fecha,
+      turno,
+      { key: "NumeroPit", label: "Número de pit", type: "choice", options: PITS },
+      { key: "CantidadTn", label: "Cantidad de producto (Tn)", type: "number" },
+    ],
+  },
+};
+
+export type FieldValue = string | number | boolean | null;
+export type Fields = Record<string, FieldValue>;
+
+// Un registro guardado. Ademas de los campos del flujo lleva los de control:
+// Title (Ingresado por), Modificado, ModificadoPor y FechaModificacion.
+export interface RecordItem {
+  id: string;
+  created: string; // ISO, fecha de ingreso
+  fields: Fields;
+}
+
+export function optionsFor(field: FieldDef, values: Fields): string[] {
+  if (field.dependsOn) {
+    const parent = values[field.dependsOn.key];
+    return typeof parent === "string" ? (field.dependsOn.options[parent] ?? []) : [];
+  }
+  return field.options ?? [];
+}
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Devuelve un mensaje por cada campo con error; un objeto vacio si todo esta bien.
+export function validate(list: ListDef, values: Fields): Record<string, string> {
+  const errors: Record<string, string> = {};
+  for (const f of list.fields) {
+    const v = values[f.key];
+    if (v === null || v === undefined || v === "") {
+      errors[f.key] = "Falta este dato";
+      continue;
+    }
+    if (f.type === "time" && !TIME_RE.test(String(v))) errors[f.key] = "Usa el formato hh:mm";
+    if (f.type === "date" && !DATE_RE.test(String(v))) errors[f.key] = "Fecha no válida";
+    if (f.type === "number" && (typeof v !== "number" || !Number.isFinite(v) || v < 0))
+      errors[f.key] = "Ingresa un número mayor o igual a 0";
+    if (f.type === "choice" && !optionsFor(f, values).includes(String(v)))
+      errors[f.key] = "Elige una opción de la lista";
+  }
+  return errors;
+}
+
+export function today(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function nowTime(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}

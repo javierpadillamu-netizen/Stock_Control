@@ -1,0 +1,176 @@
+:root {
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --text: #1a2330;
+  --muted: #5b6878;
+  --border: #d5dce4;
+  --primary: #1f4e78;
+  --primary-text: #ffffff;
+  --water: #1f6fb2;
+  --stock: #8a5a14;
+  --pits: #4b6b2a;
+  --ok-bg: #e3f4e8;
+  --ok-text: #1d6b36;
+  --bad-bg: #fde8e6;
+  --bad-text: #a1271b;
+  --mod-bg: #fff6d9;
+  --mod-border: #e2b93b;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12161c;
+    --surface: #1b2129;
+    --text: #e6ebf1;
+    --muted: #9aa7b6;
+    --border: #2e3741;
+    --primary: #4c8fd0;
+    --primary-text: #0b1118;
+    --water: #3d8fd6;
+    --stock: #c48a3a;
+    --pits: #7fa557;
+    --ok-bg: #173323;
+    --ok-text: #8fd6a6;
+    --bad-bg: #3a1c19;
+    --bad-text: #f2a39a;
+    --mod-bg: #3a3118;
+    --mod-border: #b8902a;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.app { max-width: 560px; margin: 0 auto; min-height: 100vh; }
+
+header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--primary);
+  color: var(--primary-text);
+  z-index: 1;
+}
+header h1 { flex: 1; margin: 0; font-size: 1.15rem; }
+header .back {
+  background: none;
+  border: 0;
+  color: inherit;
+  font-size: 2rem;
+  line-height: 1;
+  padding: 0 8px 4px 0;
+  cursor: pointer;
+}
+header .link { color: inherit; }
+
+main { padding: 16px; }
+
+.demo {
+  margin: 0;
+  padding: 8px 16px;
+  background: var(--mod-bg);
+  font-size: 0.9rem;
+}
+
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; flex: 1; }
+.field label { font-weight: 600; font-size: 0.95rem; }
+.field input, .field select, .pond input {
+  font: inherit;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  width: 100%;
+}
+.field.has-error input, .field.has-error select { border-color: var(--bad-text); }
+.error { margin: 0; color: var(--bad-text); font-size: 0.85rem; }
+
+.row { display: flex; gap: 12px; }
+
+.tiles { display: grid; gap: 12px; margin: 8px 0 20px; }
+.tile {
+  font: inherit;
+  font-size: 1.3rem;
+  font-weight: 700;
+  padding: 26px 16px;
+  border: 0;
+  border-radius: 12px;
+  color: #fff;
+  cursor: pointer;
+}
+.tile.water { background: var(--water); }
+.tile.stock { background: var(--stock); }
+.tile.pits { background: var(--pits); }
+
+button.primary, button.secondary {
+  font: inherit;
+  font-weight: 700;
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+button.primary { background: var(--primary); color: var(--primary-text); border: 0; }
+button.secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); margin-bottom: 12px; }
+button:disabled { opacity: 0.6; cursor: default; }
+
+button.link {
+  background: none;
+  border: 0;
+  color: var(--primary);
+  font: inherit;
+  text-decoration: underline;
+  padding: 12px 0;
+  cursor: pointer;
+}
+button.link.small { font-size: 0.9rem; padding: 0; }
+
+.notice { padding: 10px 12px; border-radius: 8px; margin: 0 0 12px; }
+.notice.ok { background: var(--ok-bg); color: var(--ok-text); }
+.notice.bad { background: var(--bad-bg); color: var(--bad-text); }
+
+.hint { color: var(--muted); font-size: 0.9rem; }
+
+.ponds { display: grid; gap: 8px; margin-bottom: 14px; }
+.pond {
+  display: grid;
+  grid-template-columns: 1fr 110px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.pond input { padding: 10px; }
+
+.records { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.record {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px 0;
+}
+.record.modified { background: var(--mod-bg); border-color: var(--mod-border); }
+.record-main { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.record-main small { color: var(--muted); }
+.record-meta { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
+.badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--mod-border);
+  color: var(--text);
+}
