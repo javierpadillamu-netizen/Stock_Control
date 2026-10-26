@@ -38,6 +38,40 @@ export const PRODUCTOS = [
 
 export const PITS = ["1", "2", "3", "4", "5", "6", "7", "8"];
 
+// Donde se almacena el producto. Cake Bin y Silo tienen capacidad maxima por producto o silo (t).
+export const ALMACENAMIENTO = ["Cake Bin", "Silo", "Bulk Bags", "Container"];
+
+export const CAPACIDAD: Record<string, Record<string, number>> = {
+  "Cake Bin": {
+    "Poultry Meal (PM)": 10,
+    "Mixed Species (MBM)": 80,
+    "Feather Meal (FM)": 15,
+  },
+  Silo: {
+    Ingham: 70,
+    Feather: 50,
+    "Meal 1": 50,
+    "Meal 2": 50,
+    "MBM 1": 50,
+    "MBM 2": 50,
+  },
+};
+
+// En Cake Bin y Silo solo se eligen los productos o silos con capacidad; en el resto, cualquier producto
+const PRODUCTO_POR_ALMACENAMIENTO: Record<string, string[]> = {
+  "Cake Bin": Object.keys(CAPACIDAD["Cake Bin"]),
+  Silo: Object.keys(CAPACIDAD.Silo),
+  "Bulk Bags": PRODUCTOS,
+  Container: PRODUCTOS,
+};
+
+export function capacityFor(values: Fields): number | undefined {
+  const lugar = values.Almacenamiento;
+  const item = values.Producto;
+  if (typeof lugar !== "string" || typeof item !== "string") return undefined;
+  return CAPACIDAD[lugar]?.[item];
+}
+
 export type FieldType = "date" | "time" | "number" | "choice";
 
 export interface FieldDef {
@@ -46,7 +80,16 @@ export interface FieldDef {
   type: FieldType;
   options?: string[];
   // Para una opcion que depende de otra (Subarea depende de Area)
-  dependsOn?: { key: string; options: Record<string, string[]> };
+  dependsOn?: {
+    key: string;
+    options: Record<string, string[]>;
+    // Texto del selector mientras no se elige el campo del que depende
+    placeholder: string;
+    // Etiqueta distinta segun el valor elegido (en Silo se elige el silo, no el producto)
+    labels?: Record<string, string>;
+  };
+  // Valor maximo permitido segun los demas campos (capacidad del Cake Bin o Silo)
+  max?: (values: Fields) => number | undefined;
 }
 
 export type ListKey = "irrigation" | "river" | "wastewater" | "ponds" | "stock" | "pits";
@@ -76,7 +119,7 @@ export const LISTS: Record<ListKey, ListDef> = {
         key: "Subarea",
         label: "Sub-area",
         type: "choice",
-        dependsOn: { key: "Area", options: AREAS },
+        dependsOn: { key: "Area", options: AREAS, placeholder: "Select an area first" },
       },
       { key: "Ml", label: "Ml", type: "number" },
     ],
@@ -111,8 +154,19 @@ export const LISTS: Record<ListKey, ListDef> = {
     fields: [
       fecha,
       turno,
-      { key: "Producto", label: "Product", type: "choice", options: PRODUCTOS },
-      { key: "StockTn", label: "Stock (t)", type: "number" },
+      { key: "Almacenamiento", label: "Storage", type: "choice", options: ALMACENAMIENTO },
+      {
+        key: "Producto",
+        label: "Product",
+        type: "choice",
+        dependsOn: {
+          key: "Almacenamiento",
+          options: PRODUCTO_POR_ALMACENAMIENTO,
+          placeholder: "Select the storage first",
+          labels: { Silo: "Silo" },
+        },
+      },
+      { key: "StockTn", label: "Stock (t)", type: "number", max: capacityFor },
     ],
   },
   pits: {
@@ -137,6 +191,11 @@ export interface RecordItem {
   id: string;
   created: string; // ISO, fecha de ingreso
   fields: Fields;
+}
+
+export function labelFor(field: FieldDef, values: Fields): string {
+  const parent = field.dependsOn ? values[field.dependsOn.key] : undefined;
+  return (typeof parent === "string" && field.dependsOn?.labels?.[parent]) || field.label;
 }
 
 export function optionsFor(field: FieldDef, values: Fields): string[] {
@@ -165,6 +224,9 @@ export function validate(list: ListDef, values: Fields): Record<string, string> 
       errors[f.key] = "Enter a number of 0 or more";
     if (f.type === "choice" && !optionsFor(f, values).includes(String(v)))
       errors[f.key] = "Select an option from the list";
+    const max = f.max?.(values);
+    if (!errors[f.key] && max !== undefined && typeof v === "number" && v > max)
+      errors[f.key] = `Exceeds the capacity of ${max} t`;
   }
   return errors;
 }

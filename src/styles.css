@@ -268,3 +268,4 @@ button.link:hover { text-decoration: underline; }
   color: var(--mod-text);
   font-weight: 600;
 }
+.field-hint { margin: 0; font-variant-numeric: tabular-nums; }

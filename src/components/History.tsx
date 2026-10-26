@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LISTS, today, type ListDef, type RecordItem } from "../schema";
+import { LISTS, labelFor, today, type ListDef, type RecordItem } from "../schema";
 import { store } from "../data";
 import { exportToExcel } from "../data/exportExcel";
 import { RecordForm } from "./RecordForm";
@@ -113,7 +113,7 @@ export function History({ list, nombre }: { list: ListDef; nombre: string }) {
             <div className="record-main">
               {list.fields.map((f) => (
                 <span key={f.key}>
-                  <small>{f.label}</small> {String(it.fields[f.key] ?? "")}
+                  <small>{labelFor(f, it.fields)}</small> {String(it.fields[f.key] ?? "")}
                 </span>
               ))}
             </div>

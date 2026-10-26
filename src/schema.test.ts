@@ -19,7 +19,7 @@ describe("validate", () => {
   it("marca datos faltantes, horas mal escritas y números negativos", () => {
     const errs = validate(LISTS.river, { Fecha: "2026-10-25", Hora: "7:5", Ml: -1 });
     expect(Object.keys(errs).sort()).toEqual(["Hora", "Ml"]);
-    expect(validate(LISTS.stock, { Fecha: "2026-10-25", Turno: "", Producto: "Tallow (MST)", StockTn: 3 })).toHaveProperty("Turno");
+    expect(validate(LISTS.stock, { Fecha: "2026-10-25", Turno: "", Almacenamiento: "Container", Producto: "Tallow (MST)", StockTn: 3 })).toHaveProperty("Turno");
   });
 });
 
@@ -50,5 +50,33 @@ describe("campos de control", () => {
       ModificadoPor: "Luis",
       FechaModificacion: "2026-10-25T10:00:00.000Z",
     });
+  });
+});
+
+describe("stock por almacenamiento", () => {
+  const stock = LISTS.stock;
+  const base = { Fecha: "2026-10-26", Turno: "Am", StockTn: 5 };
+
+  it("el producto depende del almacenamiento", () => {
+    const producto = stock.fields.find((f) => f.key === "Producto")!;
+    expect(optionsFor(producto, { Almacenamiento: "Cake Bin" })).toEqual(["Poultry Meal (PM)", "Mixed Species (MBM)", "Feather Meal (FM)"]);
+    expect(optionsFor(producto, { Almacenamiento: "Silo" })).toContain("MBM 2");
+    expect(optionsFor(producto, { Almacenamiento: "Container" })).toHaveLength(6);
+    expect(optionsFor(producto, {})).toEqual([]);
+  });
+
+  it("acepta hasta la capacidad y rechaza lo que la supera", () => {
+    expect(validate(stock, { ...base, Almacenamiento: "Cake Bin", Producto: "Poultry Meal (PM)", StockTn: 10 })).toEqual({});
+    expect(validate(stock, { ...base, Almacenamiento: "Cake Bin", Producto: "Poultry Meal (PM)", StockTn: 10.5 })).toHaveProperty("StockTn");
+    expect(validate(stock, { ...base, Almacenamiento: "Silo", Producto: "Ingham", StockTn: 70 })).toEqual({});
+    expect(validate(stock, { ...base, Almacenamiento: "Silo", Producto: "Feather", StockTn: 51 })).toHaveProperty("StockTn");
+  });
+
+  it("Bulk Bags y Container no tienen límite", () => {
+    expect(validate(stock, { ...base, Almacenamiento: "Bulk Bags", Producto: "Tallow (MST)", StockTn: 500 })).toEqual({});
+  });
+
+  it("un producto de Cake Bin que no corresponde se rechaza", () => {
+    expect(validate(stock, { ...base, Almacenamiento: "Cake Bin", Producto: "Tallow (MST)" })).toHaveProperty("Producto");
   });
 });

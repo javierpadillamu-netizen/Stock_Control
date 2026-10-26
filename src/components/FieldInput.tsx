@@ -1,4 +1,4 @@
-import { optionsFor, type FieldDef, type Fields } from "../schema";
+import { labelFor, optionsFor, type FieldDef, type Fields } from "../schema";
 
 interface Props {
   field: FieldDef;
@@ -10,12 +10,14 @@ interface Props {
 
 export function FieldInput({ field, value, values, error, onChange }: Props) {
   const id = `f-${field.key}`;
+  const max = field.max?.(values);
+  const current = values[field.key];
   let input;
   if (field.type === "choice") {
     const options = optionsFor(field, values);
     input = (
       <select id={id} value={value} onChange={(e) => onChange(e.target.value)} disabled={options.length === 0}>
-        <option value="">{options.length === 0 ? "Select an area first" : "Select…"}</option>
+        <option value="">{options.length === 0 ? (field.dependsOn?.placeholder ?? "Select…") : "Select…"}</option>
         {options.map((o) => (
           <option key={o} value={o}>
             {o}
@@ -32,9 +34,15 @@ export function FieldInput({ field, value, values, error, onChange }: Props) {
   }
   return (
     <div className={error ? "field has-error" : "field"}>
-      <label htmlFor={id}>{field.label}</label>
+      <label htmlFor={id}>{labelFor(field, values)}</label>
       {input}
       {error && <p className="error">{error}</p>}
+      {!error && max !== undefined && (
+        <p className="hint field-hint">
+          Capacity {max} t
+          {typeof current === "number" && Number.isFinite(current) && current >= 0 && ` · ${Math.round((current / max) * 100)}% full`}
+        </p>
+      )}
     </div>
   );
 }
