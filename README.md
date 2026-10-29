@@ -3,7 +3,7 @@
 App web para el celular que digitaliza el registro diario de tres flujos:
 
 - **Water:** Irrigation (por área y subárea), River, Waste Water y Ponds
-- **Stock:** stock por turno y producto, en Tn
+- **Stock:** Production Stock o Stock Onhand, por turno, almacenamiento y producto, en Tn
 - **Pits:** cantidad de producto por turno y pit, en Tn
 
 Cada registro guarda quién lo ingresó. Los registros se pueden corregir desde el historial; al hacerlo quedan marcados como **Modificado**, con el nombre de quien editó y la fecha.
@@ -76,6 +76,6 @@ Para agregar un área, un pond o un producto, edita `src/schema.ts`.
 
 ## Notas
 
-- Cada lista es una colección de Firestore: `irrigation`, `river`, `wastewater`, `ponds`, `stock` y `pits`.
+- Cada lista es una colección de Firestore: `irrigation`, `river`, `wastewater`, `ponds`, `productionStock`, `stockOnhand` y `pits`. Las reglas aún permiten leer `stock`, la colección anterior a la separación.
 - La fecha se guarda como texto `AAAA-MM-DD` y la hora como `hh:mm`, para que no cambien con la zona horaria.
 - El historial pide a Firebase solo los registros del rango de fechas elegido.

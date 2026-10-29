@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { validate, type ListDef, type RecordItem } from "../schema";
 import { store } from "../data";
+import { Icon } from "./Icon";
 import { editedRecordFields, newRecordFields } from "../data/store";
 import { draftFrom, draftToFields, emptyDraft } from "../form";
 import { FieldInput } from "./FieldInput";
@@ -69,6 +70,7 @@ export function RecordForm({ list, nombre, editing, onSaved }: Props) {
       ))}
       {message && <p className={message.ok ? "notice ok" : "notice bad"}>{message.text}</p>}
       <button type="submit" className="primary" disabled={saving}>
+        <Icon name="save" />
         {saving ? "Saving…" : editing ? "Save changes" : "Save"}
       </button>
     </form>
