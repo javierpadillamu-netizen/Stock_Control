@@ -2,10 +2,10 @@
 // No es secreta: la base de datos la protegen las reglas de firestore.rules.
 // Mientras apiKey, projectId y appId esten vacios, la app corre en modo demo (datos solo en el navegador).
 const FIREBASE = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  appId: "",
+  apiKey: "AIzaSyB3Q4n9EwEMORhIpWE0BKRjpPBDEU63c4g",
+  authDomain: "records-e5f57.firebaseapp.com",
+  projectId: "records-e5f57",
+  appId: "1:210440747391:web:34ffc8da31c3faecad824a",
 };
 
 // Las variables VITE_FIREBASE_* (por ejemplo en .env.local) reemplazan estos valores, util para pruebas locales.
