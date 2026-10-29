@@ -9,6 +9,9 @@ const PATHS = {
   pond: "M3 14c0 3 4 6 9 6s9-3 9-6-4-5-9-5-9 2-9 5z M7 14c1.5 1 3 1 5 0s3.5-1 5 0",
   factory: "M3 21V10l6 4v-4l6 4V5h4l2 16H3z M7 17h2 M12 17h2",
   warehouse: "M3 21V9l9-6 9 6v12 M7 21v-8h10v8 M7 17h10",
+  home: "M3 11l9-7 9 7 M5 10v10h14V10 M10 20v-5h4v5",
+  history: "M3 12a9 9 0 1 0 3-6.7L3 8 M3 3v5h5 M12 7v5l3 2",
+  save: "M5 3h11l3 3v15H5z M8 3v5h7V3 M8 21v-7h8v7",
   chevron: "M9 6l6 6-6 6",
   back: "M15 6l-6 6 6 6",
 } as const;

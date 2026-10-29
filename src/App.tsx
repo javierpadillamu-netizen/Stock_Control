@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { isDemo } from "./config";
-import { LISTS, type ListKey } from "./schema";
+import { LISTS, today, type ListKey } from "./schema";
 import { RecordForm } from "./components/RecordForm";
 import { PondsForm } from "./components/PondsForm";
 import { History } from "./components/History";
@@ -49,6 +49,14 @@ const FLOWS: { label: string; hint: string; icon: IconName; to: Screen }[] = [
   { label: "Pits", hint: "Product quantity by pit and shift", icon: "pits", to: { s: "form", list: "pits" } },
 ];
 
+const TABS: { id: string; label: string; icon: IconName; to: Screen }[] = [
+  { id: "home", label: "Home", icon: "home", to: { s: "home" } },
+  { id: "water", label: "Water", icon: "water", to: { s: "menu", menu: "water" } },
+  { id: "stock", label: "Stock", icon: "stock", to: { s: "menu", menu: "stock" } },
+  { id: "pits", label: "Pits", icon: "pits", to: { s: "form", list: "pits" } },
+  { id: "history", label: "Records", icon: "history", to: { s: "history", list: "irrigation" } },
+];
+
 function menuOf(list: ListKey): Menu | null {
   const flow = LISTS[list].flow;
   return flow === "Water" ? "water" : flow === "Stock" ? "stock" : null;
@@ -94,8 +102,10 @@ export default function App() {
 
   function go(next: Screen) {
     if (next.s !== "home" && next.s !== "history" && !nombre.trim()) {
+      // Sin nombre no se puede registrar: vuelve al inicio y lo pide
       setNameError(true);
-      document.getElementById("nombre")?.focus();
+      setScreen({ s: "home" });
+      setTimeout(() => document.getElementById("nombre")?.focus());
       return;
     }
     saveName(nombre.trim());
@@ -104,19 +114,35 @@ export default function App() {
   }
 
   // Un formulario vuelve al menu de su flujo; Pits y los menus vuelven al inicio
-  let back: Screen | null = null;
-  if (screen.s === "menu" || screen.s === "history") back = { s: "home" };
+  let back: { to: Screen; label: string } | null = null;
+  if (screen.s === "menu" || screen.s === "history") back = { to: { s: "home" }, label: "Home" };
   if (screen.s === "form") {
     const menu = menuOf(screen.list);
-    back = menu ? { s: "menu", menu } : { s: "home" };
+    back = menu ? { to: { s: "menu", menu }, label: MENUS[menu].title } : { to: { s: "home" }, label: "Home" };
   }
 
-  let title = "Production Records";
-  let section: string | null = null;
+  // Pestaña activa de la barra inferior
+  const tab =
+    screen.s === "home" ? "home" :
+    screen.s === "history" ? "history" :
+    screen.s === "menu" ? screen.menu :
+    menuOf(screen.list) ?? "pits";
+
+  let title = "";
+  let subtitle: string | null = null;
   let body: ReactNode;
   if (screen.s === "home") {
     body = (
       <>
+        <section className="hero-card">
+          <span className="hero-icon" aria-hidden="true">
+            <Icon name="factory" />
+          </span>
+          <div>
+            <h1>Home</h1>
+            <p>Choose an area to start recording.</p>
+          </div>
+        </section>
         <div className={nameError ? "field name-field has-error" : "field name-field"}>
           <label htmlFor="nombre">Your name</label>
           <input
@@ -131,35 +157,30 @@ export default function App() {
           />
           {nameError && <p className="error">Enter your name to continue</p>}
         </div>
-        <h2 className="section-label">Select an area</h2>
+        <h2 className="section-title">Areas</h2>
+        <p className="section-sub">Select where you are recording</p>
         <div className="cards">
           {FLOWS.map((f) => (
             <Card key={f.label} label={f.label} hint={f.hint} icon={f.icon} onClick={() => go(f.to)} />
           ))}
         </div>
-        <button className="link" onClick={() => go({ s: "history", list: "irrigation" })}>
-          View and edit records
-        </button>
       </>
     );
   } else if (screen.s === "menu") {
     const menu = MENUS[screen.menu];
     title = menu.title;
+    subtitle = menu.prompt;
     body = (
-      <>
-        <h2 className="section-label">{menu.prompt}</h2>
-        <div className="cards">
-          {menu.options.map((o) => (
-            <Card key={o.list} label={o.label} hint={o.hint} icon={o.icon} onClick={() => go({ s: "form", list: o.list })} />
-          ))}
-        </div>
-      </>
+      <div className="cards">
+        {menu.options.map((o) => (
+          <Card key={o.list} label={o.label} hint={o.hint} icon={o.icon} onClick={() => go({ s: "form", list: o.list })} />
+        ))}
+      </div>
     );
   } else if (screen.s === "form") {
     const key = screen.list;
-    const menu = menuOf(key);
     title = LISTS[key].title;
-    section = menu ? MENUS[menu].title : null;
+    subtitle = `New record · ${nombre.trim()}`;
     body = (
       <>
         <div className="panel">
@@ -176,6 +197,7 @@ export default function App() {
     );
   } else {
     title = "Records";
+    subtitle = "View, edit and export";
     const current = screen.list;
     body = (
       <>
@@ -198,27 +220,47 @@ export default function App() {
     );
   }
 
-  const home = screen.s === "home";
+  const name = nombre.trim();
   return (
     <div className="app">
-      <header className={home ? "hero" : undefined}>
+      <header>
         <div className="header-inner">
-          {back && (
-            <button className="back" aria-label="Back" onClick={() => setScreen(back)}>
-              <Icon name="back" />
-            </button>
-          )}
-          <div className="header-titles">
-            {home && <span className="eyebrow">Daily entries</span>}
-            {section && <span className="eyebrow">{section}</span>}
-            <h1>{title}</h1>
+          <span className="brand-icon" aria-hidden="true">
+            <Icon name="factory" />
+          </span>
+          <div className="brand">
+            <strong>Production Records</strong>
+            <span>{today()}{name && ` · ${name}`}</span>
           </div>
+          <button className="avatar" aria-label="Change name" onClick={() => setScreen({ s: "home" })}>
+            {name ? name[0].toUpperCase() : "?"}
+          </button>
         </div>
       </header>
       <main>
-        {isDemo && <p className="demo">Demo mode: records are saved in this browser only.</p>}
+        {isDemo && <p className="notice demo">Demo mode: records are saved in this browser only.</p>}
+        {back && (
+          <button className="back" onClick={() => setScreen(back.to)}>
+            <Icon name="back" />
+            {back.label}
+          </button>
+        )}
+        {title && (
+          <div className="page-head">
+            <h1>{title}</h1>
+            {subtitle && <p>{subtitle}</p>}
+          </div>
+        )}
         {body}
       </main>
+      <nav className="tabbar" aria-label="Sections">
+        {TABS.map((t) => (
+          <button key={t.id} className={tab === t.id ? "tab active" : "tab"} aria-current={tab === t.id ? "page" : undefined} onClick={() => go(t.to)}>
+            <Icon name={t.icon} />
+            <span>{t.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }

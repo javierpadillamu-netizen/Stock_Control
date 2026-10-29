@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { LISTS, PONDS, nowTime, today, validate } from "../schema";
 import { store } from "../data";
+import { Icon } from "./Icon";
 import { newRecordFields } from "../data/store";
 
 const list = LISTS.ponds;
@@ -82,6 +83,7 @@ export function PondsForm({ nombre }: { nombre: string }) {
       </div>
       {message && <p className={message.ok ? "notice ok" : "notice bad"}>{message.text}</p>}
       <button type="submit" className="primary" disabled={saving}>
+        <Icon name="save" />
         {saving ? "Saving…" : "Save"}
       </button>
     </form>
