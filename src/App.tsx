@@ -1,23 +1,58 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { isDemo } from "./config";
 import { LISTS, type ListKey } from "./schema";
 import { RecordForm } from "./components/RecordForm";
 import { PondsForm } from "./components/PondsForm";
 import { History } from "./components/History";
+import { Icon, type IconName } from "./components/Icon";
+
+type Menu = "water" | "stock";
 
 type Screen =
   | { s: "home" }
-  | { s: "water" }
+  | { s: "menu"; menu: Menu }
   | { s: "form"; list: ListKey }
-  | { s: "ponds" }
   | { s: "history"; list: ListKey };
 
-const WATER: { list: ListKey; label: string; hint: string }[] = [
-  { list: "irrigation", label: "Irrigation", hint: "Readings by area and sub-area" },
-  { list: "river", label: "River", hint: "River water intake" },
-  { list: "wastewater", label: "Waste Water", hint: "Waste water volume" },
-  { list: "ponds", label: "Ponds", hint: "Available depth for all 12 ponds" },
+interface Option {
+  list: ListKey;
+  label: string;
+  hint: string;
+  icon: IconName;
+}
+
+// Submenus de cada flujo: Water elige la medicion y Stock el tipo de stock
+const MENUS: Record<Menu, { title: string; prompt: string; options: Option[] }> = {
+  water: {
+    title: "Water",
+    prompt: "Select a measurement",
+    options: [
+      { list: "irrigation", label: "Irrigation", hint: "Readings by area and sub-area", icon: "sprinkler" },
+      { list: "river", label: "River", hint: "River water intake", icon: "river" },
+      { list: "wastewater", label: "Waste Water", hint: "Waste water volume", icon: "drain" },
+      { list: "ponds", label: "Ponds", hint: "Available depth for all 12 ponds", icon: "pond" },
+    ],
+  },
+  stock: {
+    title: "Stock",
+    prompt: "What are you entering?",
+    options: [
+      { list: "productionStock", label: "Production Stock", hint: "Stock produced in the shift", icon: "factory" },
+      { list: "stockOnhand", label: "Stock Onhand", hint: "Stock currently in storage", icon: "warehouse" },
+    ],
+  },
+};
+
+const FLOWS: { label: string; hint: string; icon: IconName; to: Screen }[] = [
+  { label: "Water", hint: "Irrigation, River, Waste Water, Ponds", icon: "water", to: { s: "menu", menu: "water" } },
+  { label: "Stock", hint: "Production Stock or Stock Onhand", icon: "stock", to: { s: "menu", menu: "stock" } },
+  { label: "Pits", hint: "Product quantity by pit and shift", icon: "pits", to: { s: "form", list: "pits" } },
 ];
+
+function menuOf(list: ListKey): Menu | null {
+  const flow = LISTS[list].flow;
+  return flow === "Water" ? "water" : flow === "Stock" ? "stock" : null;
+}
 
 function loadName() {
   try {
@@ -35,14 +70,19 @@ function saveName(n: string) {
   }
 }
 
-function Tile({ label, hint, onClick }: { label: string; hint: string; onClick: () => void }) {
+function Card({ label, hint, icon, onClick }: { label: string; hint: string; icon: IconName; onClick: () => void }) {
   return (
-    <button className="tile" onClick={onClick}>
-      <span className="tile-text">
-        <span className="tile-label">{label}</span>
-        <span className="tile-hint">{hint}</span>
+    <button className="card" onClick={onClick}>
+      <span className="card-icon" aria-hidden="true">
+        <Icon name={icon} />
       </span>
-      <span className="chevron" aria-hidden="true">›</span>
+      <span className="card-text">
+        <span className="card-label">{label}</span>
+        <span className="card-hint">{hint}</span>
+      </span>
+      <span className="chevron" aria-hidden="true">
+        <Icon name="chevron" />
+      </span>
     </button>
   );
 }
@@ -55,6 +95,7 @@ export default function App() {
   function go(next: Screen) {
     if (next.s !== "home" && next.s !== "history" && !nombre.trim()) {
       setNameError(true);
+      document.getElementById("nombre")?.focus();
       return;
     }
     saveName(nombre.trim());
@@ -62,19 +103,21 @@ export default function App() {
     window.scrollTo(0, 0);
   }
 
-  const back =
-    screen.s === "home" ? null :
-    screen.s === "form" || screen.s === "ponds"
-      ? (LISTS[screen.s === "ponds" ? "ponds" : screen.list].flow === "Water" ? { s: "water" as const } : { s: "home" as const })
-      : { s: "home" as const };
+  // Un formulario vuelve al menu de su flujo; Pits y los menus vuelven al inicio
+  let back: Screen | null = null;
+  if (screen.s === "menu" || screen.s === "history") back = { s: "home" };
+  if (screen.s === "form") {
+    const menu = menuOf(screen.list);
+    back = menu ? { s: "menu", menu } : { s: "home" };
+  }
 
   let title = "Production Records";
   let section: string | null = null;
-  let body;
+  let body: ReactNode;
   if (screen.s === "home") {
     body = (
       <>
-        <div className={nameError ? "field has-error" : "field"}>
+        <div className={nameError ? "field name-field has-error" : "field name-field"}>
           <label htmlFor="nombre">Your name</label>
           <input
             id="nombre"
@@ -88,39 +131,47 @@ export default function App() {
           />
           {nameError && <p className="error">Enter your name to continue</p>}
         </div>
-        <h2 className="section-label">Select a flow</h2>
-        <div className="tiles">
-          <Tile label="Water" hint="Irrigation, River, Waste Water, Ponds" onClick={() => go({ s: "water" })} />
-          <Tile label="Stock" hint="Product stock by shift" onClick={() => go({ s: "form", list: "stock" })} />
-          <Tile label="Pits" hint="Product quantity by pit and shift" onClick={() => go({ s: "form", list: "pits" })} />
+        <h2 className="section-label">Select an area</h2>
+        <div className="cards">
+          {FLOWS.map((f) => (
+            <Card key={f.label} label={f.label} hint={f.hint} icon={f.icon} onClick={() => go(f.to)} />
+          ))}
         </div>
-        <button className="link" onClick={() => go({ s: "history", list: "irrigation" })}>View and edit records</button>
+        <button className="link" onClick={() => go({ s: "history", list: "irrigation" })}>
+          View and edit records
+        </button>
       </>
     );
-  } else if (screen.s === "water") {
-    title = "Water";
+  } else if (screen.s === "menu") {
+    const menu = MENUS[screen.menu];
+    title = menu.title;
     body = (
       <>
-        <h2 className="section-label">Select a measurement</h2>
-        <div className="tiles">
-          {WATER.map((w) => (
-            <Tile key={w.list} label={w.label} hint={w.hint} onClick={() => go(w.list === "ponds" ? { s: "ponds" } : { s: "form", list: w.list })} />
+        <h2 className="section-label">{menu.prompt}</h2>
+        <div className="cards">
+          {menu.options.map((o) => (
+            <Card key={o.list} label={o.label} hint={o.hint} icon={o.icon} onClick={() => go({ s: "form", list: o.list })} />
           ))}
         </div>
       </>
     );
-  } else if (screen.s === "form" || screen.s === "ponds") {
-    const key: ListKey = screen.s === "ponds" ? "ponds" : screen.list;
+  } else if (screen.s === "form") {
+    const key = screen.list;
+    const menu = menuOf(key);
     title = LISTS[key].title;
-    section = LISTS[key].flow === "Water" ? "Water" : null;
+    section = menu ? MENUS[menu].title : null;
     body = (
       <>
-        {screen.s === "ponds" ? (
-          <PondsForm nombre={nombre.trim()} />
-        ) : (
-          <RecordForm key={key} list={LISTS[key]} nombre={nombre.trim()} onSaved={() => {}} />
-        )}
-        <button className="link" onClick={() => go({ s: "history", list: key })}>View {LISTS[key].title} records</button>
+        <div className="panel">
+          {key === "ponds" ? (
+            <PondsForm nombre={nombre.trim()} />
+          ) : (
+            <RecordForm key={key} list={LISTS[key]} nombre={nombre.trim()} onSaved={() => {}} />
+          )}
+        </div>
+        <button className="link" onClick={() => go({ s: "history", list: key })}>
+          View {LISTS[key].title} records
+        </button>
       </>
     );
   } else {
@@ -132,7 +183,9 @@ export default function App() {
           <label htmlFor="h-list">Record type</label>
           <select id="h-list" value={current} onChange={(e) => setScreen({ s: "history", list: e.target.value as ListKey })}>
             {Object.values(LISTS).map((l) => (
-              <option key={l.key} value={l.key}>{l.flow === "Water" ? `Water · ${l.title}` : l.title}</option>
+              <option key={l.key} value={l.key}>
+                {l.flow === l.title ? l.title : `${l.flow} · ${l.title}`}
+              </option>
             ))}
           </select>
         </div>
@@ -145,19 +198,27 @@ export default function App() {
     );
   }
 
+  const home = screen.s === "home";
   return (
     <div className="app">
-      <header>
+      <header className={home ? "hero" : undefined}>
         <div className="header-inner">
-          {back && <button className="back" aria-label="Back" onClick={() => setScreen(back)}>‹</button>}
+          {back && (
+            <button className="back" aria-label="Back" onClick={() => setScreen(back)}>
+              <Icon name="back" />
+            </button>
+          )}
           <div className="header-titles">
+            {home && <span className="eyebrow">Daily entries</span>}
             {section && <span className="eyebrow">{section}</span>}
             <h1>{title}</h1>
           </div>
         </div>
       </header>
-      {isDemo && <p className="demo">Demo mode: records are saved in this browser only.</p>}
-      <main>{body}</main>
+      <main>
+        {isDemo && <p className="demo">Demo mode: records are saved in this browser only.</p>}
+        {body}
+      </main>
     </div>
   );
 }

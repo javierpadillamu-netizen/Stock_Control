@@ -19,7 +19,7 @@ describe("validate", () => {
   it("marca datos faltantes, horas mal escritas y números negativos", () => {
     const errs = validate(LISTS.river, { Fecha: "2026-10-25", Hora: "7:5", Ml: -1 });
     expect(Object.keys(errs).sort()).toEqual(["Hora", "Ml"]);
-    expect(validate(LISTS.stock, { Fecha: "2026-10-25", Turno: "", Almacenamiento: "Container", Producto: "Tallow (MST)", StockTn: 3 })).toHaveProperty("Turno");
+    expect(validate(LISTS.productionStock, { Fecha: "2026-10-25", Turno: "", Almacenamiento: "Container", Producto: "Tallow (MST)", StockTn: 3 })).toHaveProperty("Turno");
   });
 });
 
@@ -54,7 +54,7 @@ describe("campos de control", () => {
 });
 
 describe("stock por almacenamiento", () => {
-  const stock = LISTS.stock;
+  const stock = LISTS.productionStock;
   const base = { Fecha: "2026-10-26", Turno: "Am", StockTn: 5 };
 
   it("el producto depende del almacenamiento", () => {
@@ -70,6 +70,11 @@ describe("stock por almacenamiento", () => {
     expect(validate(stock, { ...base, Almacenamiento: "Cake Bin", Producto: "Poultry Meal (PM)", StockTn: 10.5 })).toHaveProperty("StockTn");
     expect(validate(stock, { ...base, Almacenamiento: "Silo", Producto: "Ingham", StockTn: 70 })).toEqual({});
     expect(validate(stock, { ...base, Almacenamiento: "Silo", Producto: "Feather", StockTn: 51 })).toHaveProperty("StockTn");
+  });
+
+  it("Stock Onhand usa los mismos campos que Production Stock", () => {
+    expect(LISTS.stockOnhand.fields).toBe(LISTS.productionStock.fields);
+    expect(LISTS.stockOnhand.flow).toBe("Stock");
   });
 
   it("Bulk Bags y Container no tienen límite", () => {

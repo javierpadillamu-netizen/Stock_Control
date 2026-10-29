@@ -3,7 +3,7 @@
   "short_name": "Records",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#f3f4f6",
-  "theme_color": "#2c4a66",
+  "background_color": "#eef2f7",
+  "theme_color": "#0b2a55",
   "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
 }

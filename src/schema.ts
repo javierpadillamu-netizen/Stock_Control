@@ -92,7 +92,7 @@ export interface FieldDef {
   max?: (values: Fields) => number | undefined;
 }
 
-export type ListKey = "irrigation" | "river" | "wastewater" | "ponds" | "stock" | "pits";
+export type ListKey = "irrigation" | "river" | "wastewater" | "ponds" | "productionStock" | "stockOnhand" | "pits";
 
 export interface ListDef {
   key: ListKey;
@@ -104,6 +104,25 @@ export interface ListDef {
 const fecha: FieldDef = { key: "Fecha", label: "Date", type: "date" };
 const hora: FieldDef = { key: "Hora", label: "Time", type: "time" };
 const turno: FieldDef = { key: "Turno", label: "Shift", type: "choice", options: TURNOS };
+
+// Production Stock y Stock Onhand se registran con los mismos campos, en listas separadas
+const stockFields: FieldDef[] = [
+  fecha,
+  turno,
+  { key: "Almacenamiento", label: "Storage", type: "choice", options: ALMACENAMIENTO },
+  {
+    key: "Producto",
+    label: "Product",
+    type: "choice",
+    dependsOn: {
+      key: "Almacenamiento",
+      options: PRODUCTO_POR_ALMACENAMIENTO,
+      placeholder: "Select the storage first",
+      labels: { Silo: "Silo" },
+    },
+  },
+  { key: "StockTn", label: "Stock (t)", type: "number", max: capacityFor },
+];
 
 export const LISTS: Record<ListKey, ListDef> = {
   irrigation: {
@@ -147,28 +166,8 @@ export const LISTS: Record<ListKey, ListDef> = {
       { key: "ProfundidadCm", label: "Available depth (cm)", type: "number" },
     ],
   },
-  stock: {
-    key: "stock",
-    title: "Stock",
-    flow: "Stock",
-    fields: [
-      fecha,
-      turno,
-      { key: "Almacenamiento", label: "Storage", type: "choice", options: ALMACENAMIENTO },
-      {
-        key: "Producto",
-        label: "Product",
-        type: "choice",
-        dependsOn: {
-          key: "Almacenamiento",
-          options: PRODUCTO_POR_ALMACENAMIENTO,
-          placeholder: "Select the storage first",
-          labels: { Silo: "Silo" },
-        },
-      },
-      { key: "StockTn", label: "Stock (t)", type: "number", max: capacityFor },
-    ],
-  },
+  productionStock: { key: "productionStock", title: "Production Stock", flow: "Stock", fields: stockFields },
+  stockOnhand: { key: "stockOnhand", title: "Stock Onhand", flow: "Stock", fields: stockFields },
   pits: {
     key: "pits",
     title: "Pits",
