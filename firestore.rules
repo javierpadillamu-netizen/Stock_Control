@@ -1,32 +1,89 @@
 rules_version = '2';
 
 // Reglas de la base de datos. Se pegan en Firebase > Firestore Database > Reglas.
-// Cualquier persona con el link de la app puede leer y registrar datos (sesion anonima),
-// pero nadie puede borrar registros ni cambiar quien los ingreso.
+// Cada persona entra con su cuenta (correo y contraseña). Lo que puede hacer depende
+// del rol guardado en users/{uid}:
+//   pending: nada, espera aprobacion
+//   viewer:  ver los registros
+//   editor:  ver, registrar y corregir
+//   admin:   lo mismo que editor, y ademas aprobar cuentas y cambiar roles
+// Nadie puede borrar registros ni cambiar quien los ingreso.
 service cloud.firestore {
   match /databases/{database}/documents {
     function esLista(lista) {
       return lista in ['irrigation', 'river', 'wastewater', 'ponds', 'productionStock', 'stockOnhand', 'stock', 'pits'];
     }
 
-    match /{lista}/{registro} {
-      allow read: if request.auth != null && esLista(lista);
+    function perfilRef() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
 
-      // Un registro nuevo lleva el nombre de quien lo ingresa y no esta modificado
-      allow create: if request.auth != null && esLista(lista)
-        && request.resource.data.Title is string
-        && request.resource.data.Title.size() > 0
+    function conCuenta() {
+      return request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function perfil() {
+      return get(perfilRef()).data;
+    }
+
+    function rol() {
+      return conCuenta() && exists(perfilRef()) ? perfil().role : 'none';
+    }
+
+    function puedeVer() {
+      return rol() in ['viewer', 'editor', 'admin'];
+    }
+
+    function puedeEditar() {
+      return rol() in ['editor', 'admin'];
+    }
+
+    function esAdmin() {
+      return rol() == 'admin';
+    }
+
+    // Cuentas
+    match /users/{uid} {
+      allow read: if (conCuenta() && request.auth.uid == uid) || esAdmin();
+
+      // Al registrarse, cada persona crea solo su propio perfil y siempre como pendiente
+      allow create: if conCuenta() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'email', 'role', 'createdAt'])
+        && request.resource.data.role == 'pending'
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.createdAt == request.time;
+
+      // Solo un admin cambia roles, solo el rol, y no el suyo propio (para no quedarse sin admin)
+      allow update: if esAdmin() && request.auth.uid != uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+        && request.resource.data.role in ['pending', 'viewer', 'editor', 'admin'];
+
+      allow delete: if false;
+    }
+
+    // Registros
+    match /{lista}/{registro} {
+      allow read: if esLista(lista) && puedeVer();
+
+      // Un registro nuevo lleva la cuenta y el nombre de quien lo ingresa, y no esta modificado
+      allow create: if esLista(lista) && puedeEditar()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.Title == perfil().name
         && request.resource.data.Modificado == false
         && request.resource.data.Fecha is string
         && request.resource.data.createdAt == request.time;
 
-      // Una correccion queda marcada como modificada, con nombre y fecha,
+      // Una correccion queda marcada como modificada, con la cuenta y el nombre de quien edita,
       // y no puede cambiar quien lo ingreso ni cuando
-      allow update: if request.auth != null && esLista(lista)
+      allow update: if esLista(lista) && puedeEditar()
         && request.resource.data.Modificado == true
-        && request.resource.data.ModificadoPor is string
-        && request.resource.data.ModificadoPor.size() > 0
+        && request.resource.data.modifiedBy == request.auth.uid
+        && request.resource.data.ModificadoPor == perfil().name
         && request.resource.data.Title == resource.data.Title
+        && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null)
         && request.resource.data.createdAt == resource.data.createdAt;
 
       allow delete: if false;

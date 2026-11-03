@@ -2,19 +2,20 @@ import { useState } from "react";
 import { validate, type ListDef, type RecordItem } from "../schema";
 import { store } from "../data";
 import { Icon } from "./Icon";
-import { editedRecordFields, newRecordFields } from "../data/store";
+import { editedRecordFields, newRecordFields, type Author } from "../data/store";
 import { draftFrom, draftToFields, emptyDraft } from "../form";
 import { FieldInput } from "./FieldInput";
+import { authErrorMessage } from "../auth";
 
 interface Props {
   list: ListDef;
-  nombre: string;
+  author: Author;
   // Si viene un registro, el formulario lo edita y lo marca como modificado
   editing?: RecordItem;
   onSaved: (item: RecordItem) => void;
 }
 
-export function RecordForm({ list, nombre, editing, onSaved }: Props) {
+export function RecordForm({ list, author, editing, onSaved }: Props) {
   const [draft, setDraft] = useState(() => (editing ? draftFrom(list, editing.fields) : emptyDraft(list)));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -40,8 +41,8 @@ export function RecordForm({ list, nombre, editing, onSaved }: Props) {
     setSaving(true);
     try {
       const item = editing
-        ? await store.update(list, editing.id, editedRecordFields(values, nombre))
-        : await store.create(list, newRecordFields(values, nombre));
+        ? await store.update(list, editing.id, editedRecordFields(values, author))
+        : await store.create(list, newRecordFields(values, author));
       setMessage({ ok: true, text: editing ? "Changes saved. The record is now marked as modified." : "Record saved" });
       if (!editing) {
         // Mantiene fecha y opciones; limpia los numeros para el siguiente registro
@@ -51,7 +52,7 @@ export function RecordForm({ list, nombre, editing, onSaved }: Props) {
       }
       onSaved(item);
     } catch (e) {
-      setMessage({ ok: false, text: e instanceof Error ? e.message : "Could not save. Check your connection and try again." });
+      setMessage({ ok: false, text: authErrorMessage(e) });
     } finally {
       setSaving(false);
     }

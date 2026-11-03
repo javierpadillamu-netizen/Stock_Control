@@ -1,14 +1,9 @@
-import { initializeApp } from "firebase/app";
-import { connectAuthEmulator, getAuth, signInAnonymously } from "firebase/auth";
 import {
   addDoc,
   collection,
-  connectFirestoreEmulator,
   getDoc,
   getDocs,
-  initializeFirestore,
   orderBy,
-  persistentLocalCache,
   query,
   serverTimestamp,
   Timestamp,
@@ -19,25 +14,13 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 import type { Fields, ListDef, RecordItem } from "../schema";
-import { firebaseConfig } from "../config";
+import { auth, db } from "./firebase";
 import type { Store } from "./store";
 
 // Cada lista es una coleccion de Firestore con el mismo nombre que su clave (irrigation, river, ...).
-const app = initializeApp(firebaseConfig);
-const db = initializeFirestore(app, { localCache: persistentLocalCache() });
-const auth = getAuth(app);
-
-// Para probar en local con los emuladores de Firebase (npx firebase-tools emulators:start)
-if (import.meta.env.VITE_FIREBASE_EMULATOR === "true") {
-  connectFirestoreEmulator(db, "127.0.0.1", 8080);
-  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
-}
-
-// Sesion anonima: las reglas de Firestore exigen una sesion para leer o escribir.
-let session: Promise<unknown> | null = null;
+// Las reglas de Firestore exigen una cuenta con rol; la app solo llega aqui con la sesion abierta.
 function ready() {
-  session ??= auth.currentUser ? Promise.resolve() : signInAnonymously(auth);
-  return session;
+  return auth.authStateReady();
 }
 
 function toItem(list: ListDef, id: string, data: DocumentData): RecordItem {
