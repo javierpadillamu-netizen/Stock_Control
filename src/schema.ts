@@ -28,7 +28,7 @@ export const PONDS = [
 ];
 
 // Ponds desde donde se riega en Irrigation
-export const IRRIGATION_PONDS = ["8-9"];
+export const IRRIGATION_PONDS = ["8", "9"];
 
 export const PRODUCTOS = [
   "Poultry Meal (PM)",
