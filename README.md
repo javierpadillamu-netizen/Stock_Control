@@ -2,7 +2,7 @@
 
 App web para el celular que digitaliza el registro diario de tres flujos:
 
-- **Water:** Irrigation (por área y subárea), River, Waste Water y Ponds
+- **Water:** Irrigation (por pond, área y subárea), River, Waste Water y Ponds
 - **Stock:** Production Stock o Stock Onhand, por turno, almacenamiento y producto, en Tn
 - **Pits:** cantidad de producto por turno y pit, en Tn
 

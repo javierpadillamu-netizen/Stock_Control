@@ -27,6 +27,9 @@ export const PONDS = [
   "Lagoon 9",
 ];
 
+// Ponds desde donde se riega en Irrigation
+export const IRRIGATION_PONDS = ["8-9"];
+
 export const PRODUCTOS = [
   "Poultry Meal (PM)",
   "Mixed Species (MBM)",
@@ -133,6 +136,7 @@ export const LISTS: Record<ListKey, ListDef> = {
       fecha,
       { key: "HoraInicio", label: "Start time", type: "time" },
       { key: "HoraTermino", label: "End time", type: "time" },
+      { key: "Pond", label: "Pond", type: "choice", options: IRRIGATION_PONDS },
       { key: "Area", label: "Area", type: "choice", options: Object.keys(AREAS) },
       {
         key: "Subarea",
