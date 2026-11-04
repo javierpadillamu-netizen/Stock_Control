@@ -3,6 +3,8 @@ import { LISTS, labelFor, today, type ListDef, type RecordItem } from "../schema
 import { store } from "../data";
 import { exportToExcel } from "../data/exportExcel";
 import { RecordForm } from "./RecordForm";
+import type { Author } from "../data/store";
+import { authErrorMessage } from "../auth";
 
 function daysAgo(n: number) {
   const d = new Date();
@@ -14,7 +16,7 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" });
 }
 
-export function History({ list, nombre }: { list: ListDef; nombre: string }) {
+export function History({ list, author, canEdit }: { list: ListDef; author: Author; canEdit: boolean }) {
   const [from, setFrom] = useState(() => daysAgo(6));
   const [to, setTo] = useState(today);
   const [items, setItems] = useState<RecordItem[] | null>(null);
@@ -33,7 +35,7 @@ export function History({ list, nombre }: { list: ListDef; nombre: string }) {
       const result = await store.list(list, { from, to });
       if (id === loadId.current) setItems(result);
     } catch (e) {
-      if (id === loadId.current) setError(e instanceof Error ? e.message : "Could not load records. Check your connection and try again.");
+      if (id === loadId.current) setError(authErrorMessage(e));
     }
   }, [list, from, to]);
 
@@ -46,7 +48,7 @@ export function History({ list, nombre }: { list: ListDef; nombre: string }) {
       const sheets = await Promise.all(lists.map(async (l) => ({ list: l, items: await store.list(l, { from, to }) })));
       await exportToExcel(sheets, `Production Records ${from} to ${to}.xlsx`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not export");
+      setError(authErrorMessage(e));
     } finally {
       setExporting(false);
     }
@@ -60,15 +62,15 @@ export function History({ list, nombre }: { list: ListDef; nombre: string }) {
 
   const shown = items ?? [];
 
-  if (editing) {
+  if (editing && canEdit) {
     return (
       <div>
         <p className="hint">
-          Editing a record entered by {String(editing.fields.Title ?? "")}. When you save, it will be marked as modified by {nombre}.
+          Editing a record entered by {String(editing.fields.Title ?? "")}. When you save, it will be marked as modified by {author.name}.
         </p>
         <RecordForm
           list={list}
-          nombre={nombre}
+          author={author}
           editing={editing}
           onSaved={(item) => {
             setItems((prev) => (prev ?? []).map((it) => (it.id === item.id ? item : it)));
@@ -126,9 +128,11 @@ export function History({ list, nombre }: { list: ListDef; nombre: string }) {
                 </span>
               )}
             </div>
-            <button className="link" onClick={() => setEditing(it)}>
-              Edit
-            </button>
+            {canEdit && (
+              <button className="link" onClick={() => setEditing(it)}>
+                Edit
+              </button>
+            )}
           </li>
         ))}
       </ul>

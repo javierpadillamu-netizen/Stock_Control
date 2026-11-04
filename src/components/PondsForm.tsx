@@ -2,12 +2,13 @@ import { useState } from "react";
 import { LISTS, PONDS, nowTime, today, validate } from "../schema";
 import { store } from "../data";
 import { Icon } from "./Icon";
-import { newRecordFields } from "../data/store";
+import { newRecordFields, type Author } from "../data/store";
+import { authErrorMessage } from "../auth";
 
 const list = LISTS.ponds;
 
 // Los 12 ponds en una pantalla. Al guardar se crea un registro por cada pond con valor.
-export function PondsForm({ nombre }: { nombre: string }) {
+export function PondsForm({ author }: { author: Author }) {
   const [fecha, setFecha] = useState(today);
   const [hora, setHora] = useState(nowTime);
   const [cm, setCm] = useState<Record<string, string>>({});
@@ -34,11 +35,11 @@ export function PondsForm({ nombre }: { nombre: string }) {
     }
     setSaving(true);
     try {
-      for (const r of records) await store.create(list, newRecordFields(r, nombre));
+      for (const r of records) await store.create(list, newRecordFields(r, author));
       setCm({});
       setMessage({ ok: true, text: `${records.length} ${records.length === 1 ? "pond" : "ponds"} saved` });
     } catch (e) {
-      setMessage({ ok: false, text: e instanceof Error ? e.message : "Could not save. Check your connection and try again." });
+      setMessage({ ok: false, text: authErrorMessage(e) });
     } finally {
       setSaving(false);
     }

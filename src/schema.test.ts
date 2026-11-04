@@ -39,15 +39,21 @@ describe("draftToFields", () => {
 
 describe("campos de control", () => {
   it("un registro nuevo no está modificado", () => {
-    expect(newRecordFields({ Ml: 1 }, "Ana")).toMatchObject({ Title: "Ana", Modificado: false, ModificadoPor: null });
+    expect(newRecordFields({ Ml: 1 }, { uid: "u1", name: "Ana" })).toMatchObject({
+      Title: "Ana",
+      createdBy: "u1",
+      Modificado: false,
+      ModificadoPor: null,
+    });
   });
 
   it("una edición marca quién y cuándo", () => {
     const now = new Date("2026-10-25T10:00:00Z");
-    expect(editedRecordFields({ Ml: 2 }, "Luis", now)).toEqual({
+    expect(editedRecordFields({ Ml: 2 }, { uid: "u2", name: "Luis" }, now)).toEqual({
       Ml: 2,
       Modificado: true,
       ModificadoPor: "Luis",
+      modifiedBy: "u2",
       FechaModificacion: "2026-10-25T10:00:00.000Z",
     });
   });

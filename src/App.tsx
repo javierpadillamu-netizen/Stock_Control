@@ -1,10 +1,13 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { isDemo } from "./config";
 import { LISTS, today, type ListKey } from "./schema";
 import { RecordForm } from "./components/RecordForm";
 import { PondsForm } from "./components/PondsForm";
 import { History } from "./components/History";
 import { Icon, type IconName } from "./components/Icon";
+import { Login } from "./components/Login";
+import { Account } from "./components/Account";
+import { authService, canEdit, canRead, type Profile, type Session } from "./auth";
 
 type Menu = "water" | "stock";
 
@@ -12,7 +15,8 @@ type Screen =
   | { s: "home" }
   | { s: "menu"; menu: Menu }
   | { s: "form"; list: ListKey }
-  | { s: "history"; list: ListKey };
+  | { s: "history"; list: ListKey }
+  | { s: "account" };
 
 interface Option {
   list: ListKey;
@@ -62,22 +66,6 @@ function menuOf(list: ListKey): Menu | null {
   return flow === "Water" ? "water" : flow === "Stock" ? "stock" : null;
 }
 
-function loadName() {
-  try {
-    return localStorage.getItem("registros:nombre") ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function saveName(n: string) {
-  try {
-    localStorage.setItem("registros:nombre", n);
-  } catch {
-    // Without local storage only the remembered name is lost
-  }
-}
-
 function Card({ label, hint, icon, onClick }: { label: string; hint: string; icon: IconName; onClick: () => void }) {
   return (
     <button className="card" onClick={onClick}>
@@ -95,27 +83,106 @@ function Card({ label, hint, icon, onClick }: { label: string; hint: string; ico
   );
 }
 
+// Sesion de la cuenta: cargando, sin sesion o con el perfil (nombre y rol)
+function useSession() {
+  const [session, setSession] = useState<Session>({ status: "loading" });
+  useEffect(() => authService.subscribe(setSession), []);
+  return session;
+}
+
+function Shell({ children, profile, onAccount }: { children: ReactNode; profile?: Profile; onAccount?: () => void }) {
+  return (
+    <div className="app">
+      <header>
+        <div className="header-inner">
+          <span className="brand-icon" aria-hidden="true">
+            <Icon name="factory" />
+          </span>
+          <div className="brand">
+            <strong>Production Records</strong>
+            <span>{today()}{profile && ` · ${profile.name}`}</span>
+          </div>
+          {profile && (
+            <button className="avatar" aria-label="Account" onClick={onAccount}>
+              {profile.name ? profile.name[0].toUpperCase() : "?"}
+            </button>
+          )}
+        </div>
+      </header>
+      {children}
+    </div>
+  );
+}
+
 export default function App() {
-  const [nombre, setNombre] = useState(loadName);
-  const [screen, setScreen] = useState<Screen>({ s: "home" });
-  const [nameError, setNameError] = useState(false);
+  const session = useSession();
+  if (session.status === "loading") {
+    return (
+      <Shell>
+        <main>
+          <p className="hint waiting">Loading…</p>
+        </main>
+      </Shell>
+    );
+  }
+  if (session.status === "signedOut") {
+    return (
+      <Shell>
+        <main>
+          <Login />
+        </main>
+      </Shell>
+    );
+  }
+  const { profile } = session;
+  if (!canRead(profile.role)) {
+    return (
+      <Shell profile={profile}>
+        <main>
+          <div className="panel waiting">
+            <h2 className="section-title">Waiting for approval</h2>
+            <p className="hint">
+              Your account ({profile.email}) was created. An admin has to give it access before you can see or enter records. This
+              page updates on its own once it is approved.
+            </p>
+            <button className="secondary" onClick={() => void authService.signOut()}>
+              Sign out
+            </button>
+          </div>
+        </main>
+      </Shell>
+    );
+  }
+  return <Main key={profile.uid} profile={profile} />;
+}
+
+function Main({ profile }: { profile: Profile }) {
+  const editor = canEdit(profile.role);
+  const author = { uid: profile.uid, name: profile.name };
+  const [screen, setScreen] = useState<Screen>(editor ? { s: "home" } : { s: "history", list: "irrigation" });
+  const [denied, setDenied] = useState(false);
+
+  // Si le quitan el permiso de editor mientras esta en un formulario, vuelve al historial
+  const blocked = !editor && (screen.s === "home" || screen.s === "menu" || screen.s === "form");
+  useEffect(() => {
+    if (blocked) setScreen({ s: "history", list: screen.s === "form" ? screen.list : "irrigation" });
+  }, [blocked, screen]);
 
   function go(next: Screen) {
-    if (next.s !== "home" && next.s !== "history" && !nombre.trim()) {
-      // Sin nombre no se puede registrar: vuelve al inicio y lo pide
-      setNameError(true);
-      setScreen({ s: "home" });
-      setTimeout(() => document.getElementById("nombre")?.focus());
+    if (!editor && (next.s === "home" || next.s === "menu" || next.s === "form")) {
+      setDenied(true);
+      setScreen({ s: "history", list: next.s === "form" ? next.list : "irrigation" });
       return;
     }
-    saveName(nombre.trim());
+    setDenied(false);
     setScreen(next);
     window.scrollTo(0, 0);
   }
 
   // Un formulario vuelve al menu de su flujo; Pits y los menus vuelven al inicio
   let back: { to: Screen; label: string } | null = null;
-  if (screen.s === "menu" || screen.s === "history") back = { to: { s: "home" }, label: "Home" };
+  if (editor && (screen.s === "menu" || screen.s === "history" || screen.s === "account")) back = { to: { s: "home" }, label: "Home" };
+  if (!editor && screen.s === "account") back = { to: { s: "history", list: "irrigation" }, label: "Records" };
   if (screen.s === "form") {
     const menu = menuOf(screen.list);
     back = menu ? { to: { s: "menu", menu }, label: MENUS[menu].title } : { to: { s: "home" }, label: "Home" };
@@ -125,6 +192,7 @@ export default function App() {
   const tab =
     screen.s === "home" ? "home" :
     screen.s === "history" ? "history" :
+    screen.s === "account" ? "" :
     screen.s === "menu" ? screen.menu :
     menuOf(screen.list) ?? "pits";
 
@@ -143,20 +211,6 @@ export default function App() {
             <p>Choose an area to start recording.</p>
           </div>
         </section>
-        <div className={nameError ? "field name-field has-error" : "field name-field"}>
-          <label htmlFor="nombre">Your name</label>
-          <input
-            id="nombre"
-            value={nombre}
-            autoComplete="name"
-            placeholder="First and last name"
-            onChange={(e) => {
-              setNombre(e.target.value);
-              setNameError(false);
-            }}
-          />
-          {nameError && <p className="error">Enter your name to continue</p>}
-        </div>
         <h2 className="section-title">Areas</h2>
         <p className="section-sub">Select where you are recording</p>
         <div className="cards">
@@ -180,14 +234,14 @@ export default function App() {
   } else if (screen.s === "form") {
     const key = screen.list;
     title = LISTS[key].title;
-    subtitle = `New record · ${nombre.trim()}`;
+    subtitle = `New record · ${profile.name}`;
     body = (
       <>
         <div className="panel">
           {key === "ponds" ? (
-            <PondsForm nombre={nombre.trim()} />
+            <PondsForm author={author} />
           ) : (
-            <RecordForm key={key} list={LISTS[key]} nombre={nombre.trim()} onSaved={() => {}} />
+            <RecordForm key={key} list={LISTS[key]} author={author} onSaved={() => {}} />
           )}
         </div>
         <button className="link" onClick={() => go({ s: "history", list: key })}>
@@ -195,12 +249,16 @@ export default function App() {
         </button>
       </>
     );
+  } else if (screen.s === "account") {
+    title = "Account";
+    body = <Account profile={profile} />;
   } else {
     title = "Records";
-    subtitle = "View, edit and export";
+    subtitle = editor ? "View, edit and export" : "View and export";
     const current = screen.list;
     body = (
       <>
+        {denied && <p className="notice bad">Your account can view records only. Ask an admin for editor access.</p>}
         <div className="field">
           <label htmlFor="h-list">Record type</label>
           <select id="h-list" value={current} onChange={(e) => setScreen({ s: "history", list: e.target.value as ListKey })}>
@@ -211,36 +269,18 @@ export default function App() {
             ))}
           </select>
         </div>
-        {!nombre.trim() ? (
-          <p className="notice bad">Go back and enter your name to view and edit records.</p>
-        ) : (
-          <History list={LISTS[current]} nombre={nombre.trim()} />
-        )}
+        <History list={LISTS[current]} author={author} canEdit={editor} />
       </>
     );
   }
 
-  const name = nombre.trim();
+  const tabs = editor ? TABS : TABS.filter((t) => t.id === "history");
   return (
-    <div className="app">
-      <header>
-        <div className="header-inner">
-          <span className="brand-icon" aria-hidden="true">
-            <Icon name="factory" />
-          </span>
-          <div className="brand">
-            <strong>Production Records</strong>
-            <span>{today()}{name && ` · ${name}`}</span>
-          </div>
-          <button className="avatar" aria-label="Change name" onClick={() => setScreen({ s: "home" })}>
-            {name ? name[0].toUpperCase() : "?"}
-          </button>
-        </div>
-      </header>
+    <Shell profile={profile} onAccount={() => go({ s: "account" })}>
       <main>
         {isDemo && <p className="notice demo">Demo mode: records are saved in this browser only.</p>}
         {back && (
-          <button className="back" onClick={() => setScreen(back.to)}>
+          <button className="back" onClick={() => go(back.to)}>
             <Icon name="back" />
             {back.label}
           </button>
@@ -253,14 +293,16 @@ export default function App() {
         )}
         {body}
       </main>
-      <nav className="tabbar" aria-label="Sections">
-        {TABS.map((t) => (
-          <button key={t.id} className={tab === t.id ? "tab active" : "tab"} aria-current={tab === t.id ? "page" : undefined} onClick={() => go(t.to)}>
-            <Icon name={t.icon} />
-            <span>{t.label}</span>
-          </button>
-        ))}
-      </nav>
-    </div>
+      {tabs.length > 1 && (
+        <nav className="tabbar" aria-label="Sections">
+          {tabs.map((t) => (
+            <button key={t.id} className={tab === t.id ? "tab active" : "tab"} aria-current={tab === t.id ? "page" : undefined} onClick={() => go(t.to)}>
+              <Icon name={t.icon} />
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
+    </Shell>
   );
 }

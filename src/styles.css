@@ -362,3 +362,21 @@ button.link:hover { text-decoration: underline; }
   font-weight: 600;
 }
 .field-hint { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* Cuentas */
+.login { padding-top: 8px; }
+.login-title { margin-bottom: 14px; }
+.login-links { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 12px 0 14px; }
+.account { padding-bottom: 8px; margin-bottom: 22px; }
+.account p { margin: 0 0 8px; }
+.account-name { font-size: 1.2rem; font-weight: 700; }
+.user-row { display: flex; align-items: center; gap: 12px; }
+.user-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.user-text span { overflow: hidden; text-overflow: ellipsis; }
+.user-row select {
+  font: inherit; padding: 8px 10px; border-radius: 6px;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+}
+.role-help { padding-left: 18px; margin-top: 16px; }
+.waiting { text-align: center; padding: 24px 16px; }
+.login-links button.link { padding: 6px 0; }

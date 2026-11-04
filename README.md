@@ -6,7 +6,7 @@ App web para el celular que digitaliza el registro diario de tres flujos:
 - **Stock:** Production Stock o Stock Onhand, por turno, almacenamiento y producto, en Tn
 - **Pits:** cantidad de producto por turno y pit, en Tn
 
-Cada registro guarda quién lo ingresó. Los registros se pueden corregir desde el historial; al hacerlo quedan marcados como **Modificado**, con el nombre de quien editó y la fecha.
+Cada persona entra con **su propia cuenta** (correo y contraseña) y lo que puede hacer depende de su rol. Cada registro guarda la cuenta que lo ingresó. Los registros se pueden corregir desde el historial; al hacerlo quedan marcados como **Modificado**, con la cuenta de quien editó y la fecha.
 
 Los datos se guardan en **Firebase (Firestore)**, así que todas las personas que abren el link comparten la misma base de datos. Sin configuración, la app corre en **modo demo** y guarda los datos solo en el navegador.
 
@@ -17,19 +17,42 @@ Desde el historial se exporta a Excel una lista, o **todas las listas en un solo
 1. Entra a [console.firebase.google.com](https://console.firebase.google.com) con una cuenta de Google y crea un proyecto (Google Analytics no hace falta). El plan gratuito Spark alcanza.
 2. **Firestore Database > Crear base de datos**, en modo de producción, en una ubicación cercana (por ejemplo `australia-southeast1`).
 3. **Firestore Database > Reglas:** reemplaza el contenido por el de `firestore.rules` y pulsa **Publicar**.
-4. **Authentication > Comenzar > Método de acceso:** habilita **Anónimo**. La app abre una sesión anónima para poder usar la base de datos.
+4. **Authentication > Comenzar > Método de acceso:** habilita **Correo electrónico/contraseña** (sin "vínculo de correo electrónico"). Si estaba habilitado **Anónimo** de la versión anterior, deshabilítalo.
 5. **Authentication > Configuración > Dominios autorizados:** agrega `tu-usuario.github.io`.
 6. **Configuración del proyecto > Tus apps > Web (`</>`):** registra la app y copia `apiKey`, `authDomain`, `projectId` y `appId` de `firebaseConfig` en la constante `FIREBASE` de `src/config.ts`.
 
 Estos valores no son secretos y pueden ir en GitHub: la base de datos la protegen las reglas.
 
+## Cuentas y roles
+
+Cada persona crea su cuenta desde la app con **Create an account** (nombre, correo y contraseña). La cuenta queda **Pending** y no ve nada hasta que un admin le asigna un rol:
+
+| Rol | Qué puede hacer |
+| --- | --- |
+| Pending | Nada, espera aprobación |
+| Viewer | Ver los registros y exportar a Excel |
+| Editor | Además, registrar y corregir |
+| Admin | Además, aprobar cuentas y cambiar roles |
+
+El admin cambia los roles tocando su inicial arriba a la derecha (**Account > Users**). La pantalla de la persona se actualiza sola cuando la aprueban. Un admin no puede cambiar su propio rol, para que la app no se quede sin admin. Si alguien olvida su contraseña, usa **Forgot your password?** y le llega un correo para cambiarla.
+
+### Primer admin (una vez)
+
+Las cuentas siempre nacen como Pending, así que el primer admin se marca a mano en la consola:
+
+1. Crea tu cuenta desde la app con **Create an account**. Verás "Waiting for approval".
+2. En la consola de Firebase, ve a **Firestore Database > Datos > users** y abre el documento con tu correo.
+3. Cambia el campo `role` de `pending` a `admin` y guarda. La app te deja entrar sola, sin recargar.
+
+Desde ahí apruebas a los demás desde la app.
+
 ### Qué permiten las reglas
 
-- Leer y registrar datos: cualquier persona que abra la app.
-- Corregir un registro: solo marcándolo como modificado, con el nombre de quien edita. No se puede cambiar quién lo ingresó ni cuándo.
-- Borrar registros: nadie desde la app. Se borran en la consola de Firebase.
-
-Como cualquiera con el link puede registrar datos, compártelo solo con los equipos que lo usan.
+- Ver registros: cuentas Viewer, Editor y Admin.
+- Registrar: cuentas Editor y Admin. El registro lleva la cuenta (`createdBy`) y el nombre de quien lo ingresa; las reglas comprueban que coincidan con la cuenta que tiene la sesión, así que nadie puede registrar a nombre de otro.
+- Corregir: cuentas Editor y Admin, solo marcándolo como modificado, con la cuenta (`modifiedBy`) y el nombre de quien edita. No se puede cambiar quién lo ingresó ni cuándo. Los registros anteriores a las cuentas (sin `createdBy`) también se pueden corregir.
+- Cambiar roles: solo un Admin, y no el suyo propio. Cada persona crea solo su propio perfil, siempre como Pending.
+- Borrar registros o cuentas: nadie desde la app. Se borran en la consola de Firebase (la cuenta en **Authentication > Usuarios** y su perfil en **Firestore > users**). Para quitarle el acceso a alguien basta con ponerlo en Pending.
 
 ## Publicar con GitHub Pages
 
@@ -67,6 +90,9 @@ En otra terminal, crea `.env.local` con `VITE_FIREBASE_EMULATOR=true`, `VITE_FIR
 | `src/App.tsx` | Pantallas y navegación |
 | `src/components/` | Formularios, Ponds e historial con edición |
 | `src/data/firebaseStore.ts` | Lectura y escritura en Firestore |
+| `src/auth/` | Cuentas, roles y sesión (Firebase Auth o modo demo) |
+| `src/components/Login.tsx` | Entrar, crear cuenta y recuperar contraseña |
+| `src/components/Account.tsx` | Cuenta y administración de usuarios |
 | `src/data/localStore.ts` | Modo demo en el navegador |
 | `src/data/exportExcel.ts` | Exportación a Excel |
 | `firestore.rules` | Reglas de seguridad de la base de datos |
@@ -76,6 +102,8 @@ Para agregar un área, un pond o un producto, edita `src/schema.ts`.
 
 ## Notas
 
+- Los perfiles de las cuentas están en la colección `users`, con `name`, `email` y `role`.
+- En modo demo cualquier correo entra como Admin y todo queda en el navegador.
 - Cada lista es una colección de Firestore: `irrigation`, `river`, `wastewater`, `ponds`, `productionStock`, `stockOnhand` y `pits`. Las reglas aún permiten leer `stock`, la colección anterior a la separación.
 - La fecha se guarda como texto `AAAA-MM-DD` y la hora como `hh:mm`, para que no cambien con la zona horaria.
 - El historial pide a Firebase solo los registros del rango de fechas elegido.
