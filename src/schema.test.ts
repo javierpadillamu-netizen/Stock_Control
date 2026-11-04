@@ -7,13 +7,19 @@ const irrigation = LISTS.irrigation;
 
 describe("validate", () => {
   it("acepta un registro completo de Irrigation", () => {
-    const ok = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Area: "Argyle", Subarea: "B1", Ml: 1.25 };
+    const ok = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Pond: "8", Area: "Argyle", Subarea: "B1", Ml: 1.25 };
     expect(validate(irrigation, ok)).toEqual({});
   });
 
   it("rechaza una subárea que no es del área elegida", () => {
-    const bad = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Area: "Argyle", Subarea: "C1", Ml: 1 };
+    const bad = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Pond: "8", Area: "Argyle", Subarea: "C1", Ml: 1 };
     expect(validate(irrigation, bad)).toHaveProperty("Subarea");
+  });
+
+  it("exige el Pond en Irrigation y solo acepta 8 o 9", () => {
+    const base = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Area: "Argyle", Subarea: "B1", Ml: 1 };
+    expect(validate(irrigation, base)).toHaveProperty("Pond");
+    expect(validate(irrigation, { ...base, Pond: "7" })).toHaveProperty("Pond");
   });
 
   it("marca datos faltantes, horas mal escritas y números negativos", () => {
