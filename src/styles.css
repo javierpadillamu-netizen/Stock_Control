@@ -231,6 +231,7 @@ main { padding: 16px 16px calc(96px + env(safe-area-inset-bottom, 0px)); }
 }
 .field input::placeholder, .pond input::placeholder { color: var(--muted); }
 .field.has-error input, .field.has-error select { border-color: var(--bad-text); }
+.field input.computed { background: var(--bg); font-weight: 600; cursor: default; }
 .error { margin: 0; color: var(--bad-text); font-size: 0.82rem; }
 
 input:focus-visible, select:focus-visible, button:focus-visible {

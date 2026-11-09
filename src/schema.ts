@@ -93,6 +93,10 @@ export interface FieldDef {
   };
   // Valor maximo permitido segun los demas campos (capacidad del Cake Bin o Silo)
   max?: (values: Fields) => number | undefined;
+  // Valor minimo permitido segun los demas campos (la lectura final no puede ser menor que la inicial)
+  min?: (values: Fields) => number | undefined;
+  // Campo calculado: no se escribe, se obtiene de los demas campos (Ml = lectura final - inicial)
+  compute?: (values: Fields) => FieldValue;
 }
 
 export type ListKey = "irrigation" | "river" | "wastewater" | "ponds" | "productionStock" | "stockOnhand" | "pits";
@@ -102,6 +106,18 @@ export interface ListDef {
   title: string; // nombre de la lista en SharePoint
   flow: "Water" | "Stock" | "Pits";
   fields: FieldDef[];
+}
+
+// Lecturas del flow meter en Irrigation. Por ahora un medidor generico: el Pond elegido indica cual se uso.
+function num(v: FieldValue | undefined): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
+export function irrigatedMl(values: Fields): number | null {
+  const start = num(values.FlowMeterInicio);
+  const end = num(values.FlowMeterTermino);
+  if (start === undefined || end === undefined || end < start) return null;
+  return Number((end - start).toFixed(6));
 }
 
 const fecha: FieldDef = { key: "Fecha", label: "Date", type: "date" };
@@ -144,7 +160,14 @@ export const LISTS: Record<ListKey, ListDef> = {
         type: "choice",
         dependsOn: { key: "Area", options: AREAS, placeholder: "Select an area first" },
       },
-      { key: "Ml", label: "Ml", type: "number" },
+      { key: "FlowMeterInicio", label: "Flow meter start (Ml)", type: "number" },
+      {
+        key: "FlowMeterTermino",
+        label: "Flow meter end (Ml)",
+        type: "number",
+        min: (values) => num(values.FlowMeterInicio),
+      },
+      { key: "Ml", label: "Ml (end − start)", type: "number", compute: irrigatedMl },
     ],
   },
   river: {
@@ -217,6 +240,8 @@ export function validate(list: ListDef, values: Fields): Record<string, string> 
   const errors: Record<string, string> = {};
   for (const f of list.fields) {
     const v = values[f.key];
+    // Un campo calculado no se escribe: los errores se muestran en los campos de los que sale
+    if (f.compute) continue;
     if (v === null || v === undefined || v === "") {
       errors[f.key] = "Required";
       continue;
@@ -230,6 +255,9 @@ export function validate(list: ListDef, values: Fields): Record<string, string> 
     const max = f.max?.(values);
     if (!errors[f.key] && max !== undefined && typeof v === "number" && v > max)
       errors[f.key] = `Exceeds the capacity of ${max} t`;
+    const min = f.min?.(values);
+    if (!errors[f.key] && min !== undefined && typeof v === "number" && v < min)
+      errors[f.key] = `Must be ${min} or more (the start reading)`;
   }
   return errors;
 }

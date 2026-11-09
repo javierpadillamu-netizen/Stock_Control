@@ -24,5 +24,6 @@ export function draftToFields(list: ListDef, draft: Draft): Fields {
     else if (f.type === "number") out[f.key] = Number(raw.replace(",", "."));
     else out[f.key] = raw;
   }
+  for (const f of list.fields) if (f.compute) out[f.key] = f.compute(out);
   return out;
 }

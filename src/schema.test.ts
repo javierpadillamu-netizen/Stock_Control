@@ -7,17 +7,17 @@ const irrigation = LISTS.irrigation;
 
 describe("validate", () => {
   it("acepta un registro completo de Irrigation", () => {
-    const ok = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Pond: "8", Area: "Argyle", Subarea: "B1", Ml: 1.25 };
+    const ok = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Pond: "8", Area: "Argyle", Subarea: "B1", FlowMeterInicio: 100, FlowMeterTermino: 101.25, Ml: 1.25 };
     expect(validate(irrigation, ok)).toEqual({});
   });
 
   it("rechaza una subárea que no es del área elegida", () => {
-    const bad = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Pond: "8", Area: "Argyle", Subarea: "C1", Ml: 1 };
+    const bad = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Pond: "8", Area: "Argyle", Subarea: "C1", FlowMeterInicio: 100, FlowMeterTermino: 101, Ml: 1 };
     expect(validate(irrigation, bad)).toHaveProperty("Subarea");
   });
 
   it("exige el Pond en Irrigation y solo acepta 8 o 9", () => {
-    const base = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Area: "Argyle", Subarea: "B1", Ml: 1 };
+    const base = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Area: "Argyle", Subarea: "B1", FlowMeterInicio: 100, FlowMeterTermino: 101, Ml: 1 };
     expect(validate(irrigation, base)).toHaveProperty("Pond");
     expect(validate(irrigation, { ...base, Pond: "7" })).toHaveProperty("Pond");
   });
@@ -26,6 +26,27 @@ describe("validate", () => {
     const errs = validate(LISTS.river, { Fecha: "2026-10-25", Hora: "7:5", Ml: -1 });
     expect(Object.keys(errs).sort()).toEqual(["Hora", "Ml"]);
     expect(validate(LISTS.productionStock, { Fecha: "2026-10-25", Turno: "", Almacenamiento: "Container", Producto: "Tallow (MST)", StockTn: 3 })).toHaveProperty("Turno");
+  });
+});
+
+describe("flow meter de Irrigation", () => {
+  const draft = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Pond: "8", Area: "Argyle", Subarea: "B1" };
+
+  it("calcula Ml como lectura final menos inicial", () => {
+    const v = draftToFields(irrigation, { ...draft, FlowMeterInicio: "1230,2", FlowMeterTermino: "1234.5", Ml: "" });
+    expect(v.Ml).toBe(4.3);
+    expect(validate(irrigation, v)).toEqual({});
+  });
+
+  it("rechaza una lectura final menor que la inicial y no calcula Ml", () => {
+    const v = draftToFields(irrigation, { ...draft, FlowMeterInicio: "50", FlowMeterTermino: "40", Ml: "" });
+    expect(v.Ml).toBeNull();
+    expect(Object.keys(validate(irrigation, v))).toEqual(["FlowMeterTermino"]);
+  });
+
+  it("pide las dos lecturas", () => {
+    const v = draftToFields(irrigation, { ...draft, FlowMeterInicio: "", FlowMeterTermino: "", Ml: "" });
+    expect(Object.keys(validate(irrigation, v)).sort()).toEqual(["FlowMeterInicio", "FlowMeterTermino"]);
   });
 });
 
