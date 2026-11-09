@@ -13,7 +13,9 @@ export function FieldInput({ field, value, values, error, onChange }: Props) {
   const max = field.max?.(values);
   const current = values[field.key];
   let input;
-  if (field.type === "choice") {
+  if (field.compute) {
+    input = <input id={id} type="text" readOnly tabIndex={-1} className="computed" value={current === null || current === undefined ? "" : String(current)} placeholder="Calculated automatically" />;
+  } else if (field.type === "choice") {
     const options = optionsFor(field, values);
     input = (
       <select id={id} value={value} onChange={(e) => onChange(e.target.value)} disabled={options.length === 0}>
