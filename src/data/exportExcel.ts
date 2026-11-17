@@ -1,4 +1,4 @@
-import type { ListDef, RecordItem } from "../schema";
+import { usageOf, type ListDef, type RecordItem } from "../schema";
 
 export interface Sheet {
   list: ListDef;
@@ -25,9 +25,13 @@ export async function exportToExcel(sheets: Sheet[], fileName: string) {
 
 type Worksheet = import("exceljs").Worksheet;
 
+const USAGE = "_usage";
+
 function addSheet(ws: Worksheet, list: ListDef, items: RecordItem[]) {
+  const meter = list.meter;
   ws.columns = [
     ...list.fields.map((f) => ({ header: f.label, key: f.key, width: Math.max(14, f.label.length + 4) })),
+    ...(meter ? [{ header: meter.usageLabel, key: USAGE, width: Math.max(14, meter.usageLabel.length + 4) }] : []),
     { header: "Entered by", key: "Title", width: 20 },
     { header: "Entered at", key: "_created", width: 20 },
     { header: "Modified", key: "Modificado", width: 12 },
@@ -47,6 +51,17 @@ function addSheet(ws: Worksheet, list: ListDef, items: RecordItem[]) {
       ModificadoPor: f.ModificadoPor,
       FechaModificacion: typeof f.FechaModificacion === "string" ? new Date(f.FechaModificacion) : null,
     });
+    // Consumo: formula Current - Previous, para que se recalcule si se corrige una lectura en el Excel.
+    // Los registros antiguos sin lecturas muestran el consumo que traian.
+    if (meter) {
+      const cell = row.getCell(USAGE);
+      const prev = ws.getColumn(meter.previous).letter;
+      const cur = ws.getColumn(meter.current).letter;
+      const result = usageOf(list, f);
+      if (typeof f[meter.previous] === "number" && typeof f[meter.current] === "number")
+        cell.value = { formula: `${cur}${row.number}-${prev}${row.number}`, result: result ?? undefined };
+      else cell.value = result;
+    }
     if (f.Modificado) row.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF2CC" } };
   }
 

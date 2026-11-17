@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LISTS, optionsFor, validate } from "./schema";
+import { LISTS, lastReading, optionsFor, usageOf, validate } from "./schema";
 import { draftToFields } from "./form";
 import { editedRecordFields, newRecordFields } from "./data/store";
 
@@ -7,17 +7,17 @@ const irrigation = LISTS.irrigation;
 
 describe("validate", () => {
   it("acepta un registro completo de Irrigation", () => {
-    const ok = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Pond: "8", Area: "Argyle", Subarea: "B1", Ml: 1.25 };
+    const ok = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Pond: "8", Area: "Argyle", Subarea: "B1", LecturaAnterior: 10, LecturaActual: 11.25 };
     expect(validate(irrigation, ok)).toEqual({});
   });
 
   it("rechaza una subárea que no es del área elegida", () => {
-    const bad = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Pond: "8", Area: "Argyle", Subarea: "C1", Ml: 1 };
+    const bad = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Pond: "8", Area: "Argyle", Subarea: "C1", LecturaAnterior: 0, LecturaActual: 1 };
     expect(validate(irrigation, bad)).toHaveProperty("Subarea");
   });
 
   it("exige el Pond en Irrigation y solo acepta 8 o 9", () => {
-    const base = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Area: "Argyle", Subarea: "B1", Ml: 1 };
+    const base = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Area: "Argyle", Subarea: "B1", LecturaAnterior: 0, LecturaActual: 1 };
     expect(validate(irrigation, base)).toHaveProperty("Pond");
     expect(validate(irrigation, { ...base, Pond: "7" })).toHaveProperty("Pond");
   });
@@ -95,5 +95,35 @@ describe("stock por almacenamiento", () => {
 
   it("un producto de Cake Bin que no corresponde se rechaza", () => {
     expect(validate(stock, { ...base, Almacenamiento: "Cake Bin", Producto: "Tallow (MST)" })).toHaveProperty("Producto");
+  });
+});
+
+describe("lecturas de Irrigation", () => {
+  const base = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Pond: "8", Area: "Argyle", Subarea: "B1" };
+  const rec = (id: string, fields: Record<string, string | number>, created = "2026-10-25T10:00:00Z") => ({ id, created, fields: { ...base, ...fields } });
+
+  it("exige ambas lecturas y que la actual no sea menor que la anterior", () => {
+    expect(validate(irrigation, { ...base, LecturaAnterior: 100, LecturaActual: 120.5 })).toEqual({});
+    expect(validate(irrigation, { ...base, LecturaAnterior: 100 })).toHaveProperty("LecturaActual");
+    expect(validate(irrigation, { ...base, LecturaAnterior: 100, LecturaActual: 90 })).toHaveProperty("LecturaActual");
+  });
+
+  it("calcula el consumo y usa Ml en registros antiguos", () => {
+    expect(usageOf(irrigation, { LecturaAnterior: 100.1, LecturaActual: 120.3 })).toBe(20.2);
+    expect(usageOf(irrigation, { Ml: 3 })).toBe(3);
+    expect(usageOf(irrigation, {})).toBeNull();
+  });
+
+  it("encuentra la última lectura del mismo Pond, Area y Sub-area", () => {
+    const items = [
+      rec("a", { Fecha: "2026-10-24", LecturaActual: 100 }),
+      rec("b", { Fecha: "2026-10-26", LecturaActual: 150 }),
+      rec("c", { Fecha: "2026-10-27", Subarea: "B2", LecturaActual: 999 }),
+      rec("d", { Fecha: "2026-10-27", Pond: "9", LecturaActual: 888 }),
+      rec("e", { Fecha: "2026-10-26", HoraTermino: "08:00", LecturaActual: 140 }),
+    ];
+    expect(lastReading(irrigation, items, base)?.id).toBe("b");
+    expect(lastReading(irrigation, items, { ...base, Subarea: "B3" })).toBeNull();
+    expect(lastReading(irrigation, items, { ...base, Subarea: "" })).toBeNull();
   });
 });
