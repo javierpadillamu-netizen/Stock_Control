@@ -97,11 +97,23 @@ export interface FieldDef {
 
 export type ListKey = "irrigation" | "river" | "wastewater" | "ponds" | "productionStock" | "stockOnhand" | "pits";
 
+// Lectura de medidor: el consumo es la lectura actual menos la anterior. Al registrar,
+// la lectura anterior se completa con la ultima lectura actual guardada para la misma
+// combinacion de campos (en Irrigation: Pond + Area + Sub-area).
+export interface MeterDef {
+  previous: string; // clave de la lectura anterior
+  current: string; // clave de la lectura actual
+  groupBy: string[]; // campos que identifican el medidor
+  usageLabel: string; // columna de la diferencia en el Excel
+  legacyKey?: string; // campo de los registros antiguos que ya traian el consumo
+}
+
 export interface ListDef {
   key: ListKey;
   title: string; // nombre de la lista en SharePoint
   flow: "Water" | "Stock" | "Pits";
   fields: FieldDef[];
+  meter?: MeterDef;
 }
 
 const fecha: FieldDef = { key: "Fecha", label: "Date", type: "date" };
@@ -144,8 +156,16 @@ export const LISTS: Record<ListKey, ListDef> = {
         type: "choice",
         dependsOn: { key: "Area", options: AREAS, placeholder: "Select an area first" },
       },
-      { key: "Ml", label: "Ml", type: "number" },
+      { key: "LecturaAnterior", label: "Previous Reading (ML)", type: "number" },
+      { key: "LecturaActual", label: "Current Reading (ML)", type: "number" },
     ],
+    meter: {
+      previous: "LecturaAnterior",
+      current: "LecturaActual",
+      groupBy: ["Pond", "Area", "Subarea"],
+      usageLabel: "Used (ML)",
+      legacyKey: "Ml",
+    },
   },
   river: {
     key: "river",
@@ -231,7 +251,41 @@ export function validate(list: ListDef, values: Fields): Record<string, string> 
     if (!errors[f.key] && max !== undefined && typeof v === "number" && v > max)
       errors[f.key] = `Exceeds the capacity of ${max} t`;
   }
+  const m = list.meter;
+  if (m && !errors[m.previous] && !errors[m.current] && Number(values[m.current]) < Number(values[m.previous]))
+    errors[m.current] = "Must be equal to or greater than the previous reading";
   return errors;
+}
+
+// Consumo de un registro: actual - anterior. Los registros antiguos traen el consumo en legacyKey.
+export function usageOf(list: ListDef, fields: Fields): number | null {
+  const m = list.meter;
+  if (!m) return null;
+  const prev = fields[m.previous];
+  const cur = fields[m.current];
+  if (typeof prev === "number" && typeof cur === "number") return Math.round((cur - prev) * 1e6) / 1e6;
+  const old = m.legacyKey ? fields[m.legacyKey] : null;
+  return typeof old === "number" ? old : null;
+}
+
+// Ultimo registro guardado del mismo medidor (mismos valores en groupBy), segun fecha,
+// hora de termino y momento de ingreso. Sirve para completar la lectura anterior.
+export function lastReading(list: ListDef, items: RecordItem[], values: Fields): RecordItem | null {
+  const m = list.meter;
+  if (!m) return null;
+  if (m.groupBy.some((k) => values[k] === null || values[k] === undefined || values[k] === "")) return null;
+  let best: RecordItem | null = null;
+  let bestKey = "";
+  for (const it of items) {
+    if (typeof it.fields[m.current] !== "number") continue;
+    if (m.groupBy.some((k) => String(it.fields[k] ?? "") !== String(values[k]))) continue;
+    const key = `${it.fields.Fecha ?? ""}|${it.fields.HoraTermino ?? it.fields.Hora ?? ""}|${it.created}`;
+    if (!best || key > bestKey) {
+      best = it;
+      bestKey = key;
+    }
+  }
+  return best;
 }
 
 export function today(): string {

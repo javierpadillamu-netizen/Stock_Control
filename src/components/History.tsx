@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LISTS, labelFor, today, type ListDef, type RecordItem } from "../schema";
+import { LISTS, labelFor, today, usageOf, type ListDef, type RecordItem } from "../schema";
 import { store } from "../data";
 import { exportToExcel } from "../data/exportExcel";
 import { RecordForm } from "./RecordForm";
@@ -118,6 +118,11 @@ export function History({ list, author, canEdit }: { list: ListDef; author: Auth
                   <small>{labelFor(f, it.fields)}</small> {String(it.fields[f.key] ?? "")}
                 </span>
               ))}
+              {list.meter && (
+                <span>
+                  <small>{list.meter.usageLabel}</small> {usageOf(list, it.fields) ?? ""}
+                </span>
+              )}
             </div>
             <div className="record-meta">
               Entered by {String(it.fields.Title ?? "")} · {formatDate(it.created)}

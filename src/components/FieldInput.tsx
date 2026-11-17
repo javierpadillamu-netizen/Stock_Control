@@ -5,10 +5,11 @@ interface Props {
   value: string;
   values: Fields;
   error?: string;
+  hint?: string;
   onChange: (value: string) => void;
 }
 
-export function FieldInput({ field, value, values, error, onChange }: Props) {
+export function FieldInput({ field, value, values, error, hint, onChange }: Props) {
   const id = `f-${field.key}`;
   const max = field.max?.(values);
   const current = values[field.key];
@@ -37,6 +38,7 @@ export function FieldInput({ field, value, values, error, onChange }: Props) {
       <label htmlFor={id}>{labelFor(field, values)}</label>
       {input}
       {error && <p className="error">{error}</p>}
+      {!error && hint && <p className="hint field-hint">{hint}</p>}
       {!error && max !== undefined && (
         <p className="hint field-hint">
           Capacity {max} t
