@@ -384,3 +384,12 @@ button.link:hover { text-decoration: underline; }
 .role-help { padding-left: 18px; margin-top: 16px; }
 .waiting { text-align: center; padding: 24px 16px; }
 .login-links button.link { padding: 6px 0; }
+
+/* Aviso de version nueva */
+.update-banner {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 16px; background: var(--mod-bg); color: var(--mod-text);
+  border-bottom: 1px solid var(--mod-border); font-size: 0.92rem;
+}
+.update-banner button.primary { width: auto; flex: none; padding: 8px 16px; margin: 0; }
