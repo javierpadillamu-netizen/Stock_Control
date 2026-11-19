@@ -27,6 +27,16 @@ export const PONDS = [
   "Lagoon 9",
 ];
 
+// Sitios de muestreo de Surface Monitoring y su Site ID, que se completa solo
+export const SAMPLE_SITES: Record<string, string> = {
+  "Swan Gully Upstream": "SGUP",
+  "Swan Gully Downstream": "SGDW",
+  "Sandy Creek Upstream": "SCUP",
+  "Sandy Creek Downstream": "SCDW",
+  "Trap Dam North": "TDN",
+  "Trap Dam South": "TDS",
+};
+
 // Ponds desde donde se riega en Irrigation
 export const IRRIGATION_PONDS = ["8", "9"];
 
@@ -95,6 +105,10 @@ export interface FieldDef {
   max?: (values: Fields) => number | undefined;
   // Se completa solo con la fecha u hora del momento en que se guarda; no aparece al registrar
   auto?: boolean;
+  // Se calcula a partir de otros campos al guardar (Site ID segun Sample Site); nunca se escribe a mano
+  computed?: (values: Fields) => FieldValue;
+  // Campo del que sale el valor calculado; bajo ese campo se muestra el resultado
+  computedFrom?: string;
   // Puede quedar vacio (Comments)
   optional?: boolean;
   // Acepta numeros negativos (Eh, temperatura)
@@ -206,7 +220,14 @@ export const LISTS: Record<ListKey, ListDef> = {
       { ...fecha, auto: true },
       { ...hora, auto: true },
       { key: "SampleID", label: "Sample ID", type: "text" },
-      { key: "SiteID", label: "Site ID", type: "text" },
+      { key: "SampleSite", label: "Sample Site", type: "choice", options: Object.keys(SAMPLE_SITES) },
+      {
+        key: "SiteID",
+        label: "Site ID",
+        type: "text",
+        computedFrom: "SampleSite",
+        computed: (v) => (typeof v.SampleSite === "string" ? (SAMPLE_SITES[v.SampleSite] ?? null) : null),
+      },
       { key: "DO", label: "DO (mg.l-1)", type: "number" },
       { key: "EC", label: "EC (uS)", type: "number" },
       { key: "pH", label: "pH", type: "number" },
