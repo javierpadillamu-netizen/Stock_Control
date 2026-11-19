@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { lastReading, validate, type Fields, type ListDef, type RecordItem } from "../schema";
+import { lastReading, nowTime, today, validate, type Fields, type ListDef, type RecordItem } from "../schema";
 import { store } from "../data";
 import { Icon } from "./Icon";
 import { editedRecordFields, newRecordFields, type Author } from "../data/store";
@@ -21,7 +21,15 @@ export function RecordForm({ list, author, editing, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
+  // Fecha y hora automaticas: al registrar no se muestran y toman el momento en que se guarda
+  const autoFields = editing ? [] : list.fields.filter((f) => f.auto);
+  const visible = list.fields.filter((f) => !autoFields.includes(f));
   const values = draftToFields(list, draft);
+  function stamp(fields: Fields): Fields {
+    const out = { ...fields };
+    for (const f of autoFields) out[f.key] = f.type === "date" ? today() : nowTime();
+    return out;
+  }
   const meter = list.meter;
 
   // Registros guardados de la lista, para buscar la ultima lectura del medidor (solo al registrar)
@@ -63,7 +71,8 @@ export function RecordForm({ list, author, editing, onSaved }: Props) {
   }
 
   async function save() {
-    const errs = validate(list, values);
+    const toSave = stamp(values);
+    const errs = validate(list, toSave);
     setErrors(errs);
     if (Object.keys(errs).length > 0) {
       setMessage({ ok: false, text: "Check the highlighted fields" });
@@ -72,13 +81,14 @@ export function RecordForm({ list, author, editing, onSaved }: Props) {
     setSaving(true);
     try {
       const item = editing
-        ? await store.update(list, editing.id, editedRecordFields(values, author))
-        : await store.create(list, newRecordFields(values, author));
-      setMessage({ ok: true, text: editing ? "Changes saved. The record is now marked as modified." : "Record saved" });
+        ? await store.update(list, editing.id, editedRecordFields(toSave, author))
+        : await store.create(list, newRecordFields(toSave, author));
+      const when = autoFields.length > 0 ? ` on ${String(toSave.Fecha)} at ${String(toSave.Hora)}` : "";
+      setMessage({ ok: true, text: editing ? "Changes saved. The record is now marked as modified." : `Record saved${when}` });
       if (!editing) {
         // Mantiene fecha y opciones; limpia los numeros para el siguiente registro
         const next = { ...draft };
-        for (const f of list.fields) if (f.type === "number") next[f.key] = "";
+        for (const f of list.fields) if (f.type === "number" || f.type === "text") next[f.key] = "";
         // La lectura recien guardada pasa a ser la anterior del siguiente registro
         if (meter) {
           const items = [item, ...(saved ?? [])];
@@ -111,7 +121,13 @@ export function RecordForm({ list, author, editing, onSaved }: Props) {
         void save();
       }}
     >
-      {list.fields.map((f) => (
+      {autoFields.length > 0 && (
+        <p className="notice auto">
+          <Icon name="history" />
+          Date and time are recorded automatically when you save.
+        </p>
+      )}
+      {visible.map((f) => (
         <FieldInput
           key={f.key}
           field={f}
