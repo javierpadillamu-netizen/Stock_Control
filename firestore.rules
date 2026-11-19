@@ -11,7 +11,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function esLista(lista) {
-      return lista in ['irrigation', 'river', 'wastewater', 'ponds', 'productionStock', 'stockOnhand', 'stock', 'pits'];
+      return lista in ['irrigation', 'river', 'wastewater', 'ponds', 'surfaceMonitoring', 'productionStock', 'stockOnhand', 'stock', 'pits'];
     }
 
     function perfilRef() {

@@ -75,7 +75,7 @@ export function capacityFor(values: Fields): number | undefined {
   return CAPACIDAD[lugar]?.[item];
 }
 
-export type FieldType = "date" | "time" | "number" | "choice";
+export type FieldType = "date" | "time" | "number" | "choice" | "text";
 
 export interface FieldDef {
   key: string;
@@ -93,9 +93,17 @@ export interface FieldDef {
   };
   // Valor maximo permitido segun los demas campos (capacidad del Cake Bin o Silo)
   max?: (values: Fields) => number | undefined;
+  // Se completa solo con la fecha u hora del momento en que se guarda; no aparece al registrar
+  auto?: boolean;
+  // Puede quedar vacio (Comments)
+  optional?: boolean;
+  // Acepta numeros negativos (Eh, temperatura)
+  signed?: boolean;
+  // Texto de varias lineas
+  multiline?: boolean;
 }
 
-export type ListKey = "irrigation" | "river" | "wastewater" | "ponds" | "productionStock" | "stockOnhand" | "pits";
+export type ListKey = "irrigation" | "river" | "wastewater" | "ponds" | "surfaceMonitoring" | "productionStock" | "stockOnhand" | "pits";
 
 // Lectura de medidor: el consumo es la lectura actual menos la anterior. Al registrar,
 // la lectura anterior se completa con la ultima lectura actual guardada para la misma
@@ -190,6 +198,24 @@ export const LISTS: Record<ListKey, ListDef> = {
       { key: "ProfundidadCm", label: "Available depth (cm)", type: "number" },
     ],
   },
+  surfaceMonitoring: {
+    key: "surfaceMonitoring",
+    title: "Surface Monitoring",
+    flow: "Water",
+    fields: [
+      { ...fecha, auto: true },
+      { ...hora, auto: true },
+      { key: "SampleID", label: "Sample ID", type: "text" },
+      { key: "SiteID", label: "Site ID", type: "text" },
+      { key: "DO", label: "DO (mg.l-1)", type: "number" },
+      { key: "EC", label: "EC (uS)", type: "number" },
+      { key: "pH", label: "pH", type: "number" },
+      { key: "Eh", label: "Eh (mV)", type: "number", signed: true },
+      { key: "Temp", label: "Temp. (°C)", type: "number", signed: true },
+      { key: "Turbidity", label: "Turbidity (NTU)", type: "number" },
+      { key: "Comments", label: "Comments", type: "text", optional: true, multiline: true },
+    ],
+  },
   productionStock: { key: "productionStock", title: "Production Stock", flow: "Stock", fields: stockFields },
   stockOnhand: { key: "stockOnhand", title: "Stock Onhand", flow: "Stock", fields: stockFields },
   pits: {
@@ -238,13 +264,14 @@ export function validate(list: ListDef, values: Fields): Record<string, string> 
   for (const f of list.fields) {
     const v = values[f.key];
     if (v === null || v === undefined || v === "") {
+      if (f.optional) continue;
       errors[f.key] = "Required";
       continue;
     }
     if (f.type === "time" && !TIME_RE.test(String(v))) errors[f.key] = "Use the hh:mm format";
     if (f.type === "date" && !DATE_RE.test(String(v))) errors[f.key] = "Enter a valid date";
-    if (f.type === "number" && (typeof v !== "number" || !Number.isFinite(v) || v < 0))
-      errors[f.key] = "Enter a number of 0 or more";
+    if (f.type === "number" && (typeof v !== "number" || !Number.isFinite(v) || (!f.signed && v < 0)))
+      errors[f.key] = f.signed ? "Enter a number" : "Enter a number of 0 or more";
     if (f.type === "choice" && !optionsFor(f, values).includes(String(v)))
       errors[f.key] = "Select an option from the list";
     const max = f.max?.(values);

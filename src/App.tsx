@@ -35,6 +35,7 @@ const MENUS: Record<Menu, { title: string; prompt: string; options: Option[] }> 
       { list: "river", label: "River", hint: "River water intake", icon: "river" },
       { list: "wastewater", label: "Waste Water", hint: "Waste water volume", icon: "drain" },
       { list: "ponds", label: "Ponds", hint: "Available depth for all 12 ponds", icon: "pond" },
+      { list: "surfaceMonitoring", label: "Surface Monitoring", hint: "Water quality samples by site", icon: "flask" },
     ],
   },
   stock: {
@@ -48,7 +49,7 @@ const MENUS: Record<Menu, { title: string; prompt: string; options: Option[] }> 
 };
 
 const FLOWS: { label: string; hint: string; icon: IconName; to: Screen }[] = [
-  { label: "Water", hint: "Irrigation, River, Waste Water, Ponds", icon: "water", to: { s: "menu", menu: "water" } },
+  { label: "Water", hint: "Irrigation, River, Waste Water, Ponds, Surface Monitoring", icon: "water", to: { s: "menu", menu: "water" } },
   { label: "Stock", hint: "Production Stock or Stock Onhand", icon: "stock", to: { s: "menu", menu: "stock" } },
   { label: "Pits", hint: "Product quantity by pit and shift", icon: "pits", to: { s: "form", list: "pits" } },
 ];

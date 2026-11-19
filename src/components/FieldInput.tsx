@@ -30,12 +30,19 @@ export function FieldInput({ field, value, values, error, hint, onChange }: Prop
     input = (
       <input id={id} type="text" inputMode="decimal" autoComplete="off" value={value} onChange={(e) => onChange(e.target.value)} />
     );
+  } else if (field.type === "text" && field.multiline) {
+    input = <textarea id={id} rows={3} value={value} onChange={(e) => onChange(e.target.value)} />;
+  } else if (field.type === "text") {
+    input = <input id={id} type="text" autoComplete="off" value={value} onChange={(e) => onChange(e.target.value)} />;
   } else {
     input = <input id={id} type={field.type} value={value} onChange={(e) => onChange(e.target.value)} />;
   }
   return (
     <div className={error ? "field has-error" : "field"}>
-      <label htmlFor={id}>{labelFor(field, values)}</label>
+      <label htmlFor={id}>
+        {labelFor(field, values)}
+        {field.optional && <span className="optional"> (optional)</span>}
+      </label>
       {input}
       {error && <p className="error">{error}</p>}
       {!error && hint && <p className="hint field-hint">{hint}</p>}
