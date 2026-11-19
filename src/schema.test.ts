@@ -127,3 +127,12 @@ describe("lecturas de Irrigation", () => {
     expect(lastReading(irrigation, items, { ...base, Subarea: "" })).toBeNull();
   });
 });
+
+describe("Surface Monitoring", () => {
+  const siteId = LISTS.surfaceMonitoring.fields.find((f) => f.key === "SiteID")!;
+  it("calcula el Site ID segun el Sample Site", () => {
+    expect(siteId.computed!({ SampleSite: "Swan Gully Upstream" })).toBe("SGUP");
+    expect(siteId.computed!({ SampleSite: "Trap Dam South" })).toBe("TDS");
+    expect(siteId.computed!({ SampleSite: null })).toBeNull();
+  });
+});

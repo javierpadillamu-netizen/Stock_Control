@@ -23,11 +23,13 @@ export function RecordForm({ list, author, editing, onSaved }: Props) {
 
   // Fecha y hora automaticas: al registrar no se muestran y toman el momento en que se guarda
   const autoFields = editing ? [] : list.fields.filter((f) => f.auto);
-  const visible = list.fields.filter((f) => !autoFields.includes(f));
+  const computedFields = list.fields.filter((f) => f.computed);
+  const visible = list.fields.filter((f) => !autoFields.includes(f) && !f.computed);
   const values = draftToFields(list, draft);
   function stamp(fields: Fields): Fields {
     const out = { ...fields };
     for (const f of autoFields) out[f.key] = f.type === "date" ? today() : nowTime();
+    for (const f of computedFields) out[f.key] = f.computed!(out);
     return out;
   }
   const meter = list.meter;
@@ -105,6 +107,16 @@ export function RecordForm({ list, author, editing, onSaved }: Props) {
     }
   }
 
+  // Valor calculado que sale del campo elegido (Site ID bajo Sample Site)
+  function computedHint(key: string) {
+    const parts = computedFields
+      .filter((c) => c.computedFrom === key)
+      .map((c) => [c.label, c.computed!(values)] as const)
+      .filter(([, v]) => v !== null && v !== "")
+      .map(([label, v]) => `${label}: ${String(v)}`);
+    return parts.length > 0 ? parts.join(" · ") : undefined;
+  }
+
   function previousHint() {
     if (!meter) return undefined;
     if (meter.groupBy.some((k) => !values[k])) return undefined;
@@ -134,7 +146,7 @@ export function RecordForm({ list, author, editing, onSaved }: Props) {
           value={draft[f.key]}
           values={values}
           error={errors[f.key]}
-          hint={meter && !editing && f.key === meter.previous ? previousHint() : undefined}
+          hint={meter && !editing && f.key === meter.previous ? previousHint() : computedHint(f.key)}
           onChange={(v) => change(f.key, v)}
         />
       ))}
