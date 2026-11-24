@@ -25,7 +25,7 @@ function ready() {
 
 function toItem(list: ListDef, id: string, data: DocumentData): RecordItem {
   const fields: Fields = {};
-  for (const key of ["Title", "Modificado", "ModificadoPor", "FechaModificacion", ...list.fields.map((f) => f.key), ...(list.meter?.legacyKey ? [list.meter.legacyKey] : [])]) {
+  for (const key of ["Title", "Modificado", "ModificadoPor", "FechaModificacion", "CerradoPor", ...list.fields.map((f) => f.key), ...(list.meter?.legacyKey ? [list.meter.legacyKey] : [])]) {
     fields[key] = data[key] ?? null;
   }
   fields.Modificado = fields.Modificado === true;

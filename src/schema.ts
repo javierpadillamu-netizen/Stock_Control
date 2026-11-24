@@ -115,6 +115,9 @@ export interface FieldDef {
   signed?: boolean;
   // Texto de varias lineas
   multiline?: boolean;
+  // Se completa al cerrar el registro (hora de termino de Irrigation): no aparece al crearlo,
+  // y mientras esta vacio el registro queda abierto (Open)
+  closing?: boolean;
 }
 
 export type ListKey = "irrigation" | "river" | "wastewater" | "ponds" | "surfaceMonitoring" | "productionStock" | "stockOnhand" | "pits";
@@ -169,7 +172,7 @@ export const LISTS: Record<ListKey, ListDef> = {
     fields: [
       fecha,
       { key: "HoraInicio", label: "Start time", type: "time" },
-      { key: "HoraTermino", label: "End time", type: "time" },
+      { key: "HoraTermino", label: "End time", type: "time", closing: true },
       { key: "Pond", label: "Pond", type: "choice", options: IRRIGATION_PONDS },
       { key: "Area", label: "Area", type: "choice", options: Object.keys(AREAS) },
       {
@@ -285,7 +288,7 @@ export function validate(list: ListDef, values: Fields): Record<string, string> 
   for (const f of list.fields) {
     const v = values[f.key];
     if (v === null || v === undefined || v === "") {
-      if (f.optional) continue;
+      if (f.optional || f.closing) continue;
       errors[f.key] = "Required";
       continue;
     }
@@ -327,13 +330,56 @@ export function lastReading(list: ListDef, items: RecordItem[], values: Fields):
   for (const it of items) {
     if (typeof it.fields[m.current] !== "number") continue;
     if (m.groupBy.some((k) => String(it.fields[k] ?? "") !== String(values[k]))) continue;
-    const key = `${it.fields.Fecha ?? ""}|${it.fields.HoraTermino ?? it.fields.Hora ?? ""}|${it.created}`;
+    const key = `${it.fields.Fecha ?? ""}|${it.fields.HoraTermino ?? it.fields.HoraInicio ?? it.fields.Hora ?? ""}|${it.created}`;
     if (!best || key > bestKey) {
       best = it;
       bestKey = key;
     }
   }
   return best;
+}
+
+// Campo que cierra el registro (End time en Irrigation), si la lista lo tiene
+export function closingField(list: ListDef): FieldDef | undefined {
+  return list.fields.find((f) => f.closing);
+}
+
+// Un registro sigue abierto (Open) mientras no tenga la hora de termino.
+// Los registros antiguos ya traen ambas horas, asi que quedan cerrados (Closed).
+export function isOpen(list: ListDef, fields: Fields): boolean {
+  const f = closingField(list);
+  if (!f) return false;
+  const v = fields[f.key];
+  return v === null || v === undefined || v === "";
+}
+
+function minutesOf(time: FieldValue): number | null {
+  if (typeof time !== "string" || !TIME_RE.test(time)) return null;
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+// Minutos entre inicio y termino. Si el termino es menor, la irrigacion paso la medianoche.
+export function durationMinutes(start: FieldValue, end: FieldValue): number | null {
+  const a = minutesOf(start);
+  const b = minutesOf(end);
+  if (a === null || b === null) return null;
+  return b >= a ? b - a : b + 24 * 60 - a;
+}
+
+export function formatDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h} h ${m} min` : `${m} min`;
+}
+
+// Minutos que lleva abierta una irrigacion que empezo en fecha (YYYY-MM-DD) y hora (hh:mm)
+export function elapsedMinutes(date: FieldValue, time: FieldValue, now = new Date()): number | null {
+  if (typeof date !== "string" || !DATE_RE.test(date) || minutesOf(time) === null) return null;
+  const [y, mo, d] = date.split("-").map(Number);
+  const [h, mi] = String(time).split(":").map(Number);
+  const start = new Date(y, mo - 1, d, h, mi);
+  return Math.max(0, Math.floor((now.getTime() - start.getTime()) / 60000));
 }
 
 export function today(): string {

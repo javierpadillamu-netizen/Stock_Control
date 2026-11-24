@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LISTS, labelFor, today, usageOf, type ListDef, type RecordItem } from "../schema";
+import { LISTS, closingField, durationMinutes, formatDuration, isOpen, labelFor, today, usageOf, type ListDef, type RecordItem } from "../schema";
 import { store } from "../data";
 import { exportToExcel } from "../data/exportExcel";
 import { RecordForm } from "./RecordForm";
@@ -61,6 +61,7 @@ export function History({ list, author, canEdit }: { list: ListDef; author: Auth
   }, [load]);
 
   const shown = items ?? [];
+  const closes = closingField(list);
 
   if (editing && canEdit) {
     return (
@@ -113,11 +114,18 @@ export function History({ list, author, canEdit }: { list: ListDef; author: Auth
         {shown.map((it) => (
           <li key={it.id} className={it.fields.Modificado ? "record modified" : "record"}>
             <div className="record-main">
+              {closes &&
+                (isOpen(list, it.fields) ? <span className="status open">Open</span> : <span className="status closed">Closed</span>)}
               {list.fields.map((f) => (
                 <span key={f.key}>
                   <small>{labelFor(f, it.fields)}</small> {String(it.fields[f.key] ?? "")}
                 </span>
               ))}
+              {closes && !isOpen(list, it.fields) && durationMinutes(it.fields.HoraInicio, it.fields[closes.key]) !== null && (
+                <span>
+                  <small>Duration</small> {formatDuration(durationMinutes(it.fields.HoraInicio, it.fields[closes.key])!)}
+                </span>
+              )}
               {list.meter && (
                 <span>
                   <small>{list.meter.usageLabel}</small> {usageOf(list, it.fields) ?? ""}
@@ -126,6 +134,7 @@ export function History({ list, author, canEdit }: { list: ListDef; author: Auth
             </div>
             <div className="record-meta">
               Entered by {String(it.fields.Title ?? "")} · {formatDate(it.created)}
+              {typeof it.fields.CerradoPor === "string" && ` · Closed by ${it.fields.CerradoPor}`}
               {it.fields.Modificado && (
                 <span className="badge">
                   Modified by {String(it.fields.ModificadoPor ?? "")}

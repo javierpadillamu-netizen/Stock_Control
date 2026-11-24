@@ -5,7 +5,8 @@ export type Draft = Record<string, string>;
 // Valores iniciales de un formulario nuevo: fecha y hora actuales
 export function emptyDraft(list: ListDef): Draft {
   const d: Draft = {};
-  for (const f of list.fields) d[f.key] = f.type === "date" ? today() : f.type === "time" ? nowTime() : "";
+  // El campo de cierre (End time) queda vacio: se completa despues, al cerrar
+  for (const f of list.fields) d[f.key] = f.closing ? "" : f.type === "date" ? today() : f.type === "time" ? nowTime() : "";
   return d;
 }
 

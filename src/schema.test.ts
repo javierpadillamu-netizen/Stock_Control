@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { LISTS, lastReading, optionsFor, usageOf, validate } from "./schema";
-import { draftToFields } from "./form";
-import { editedRecordFields, newRecordFields } from "./data/store";
+import { LISTS, durationMinutes, elapsedMinutes, formatDuration, isOpen, lastReading, optionsFor, usageOf, validate } from "./schema";
+import { draftToFields, emptyDraft } from "./form";
+import { closedRecordFields, editedRecordFields, newRecordFields } from "./data/store";
 
 const irrigation = LISTS.irrigation;
 
@@ -134,5 +134,44 @@ describe("Surface Monitoring", () => {
     expect(siteId.computed!({ SampleSite: "Swan Gully Upstream" })).toBe("SGUP");
     expect(siteId.computed!({ SampleSite: "Trap Dam South" })).toBe("TDS");
     expect(siteId.computed!({ SampleSite: null })).toBeNull();
+  });
+});
+
+describe("Irrigation en dos pasos (Open / Closed)", () => {
+  const start = { Fecha: "2026-10-25", HoraInicio: "07:00", Pond: "8", Area: "Argyle", Subarea: "B1", LecturaAnterior: 10, LecturaActual: 11 };
+
+  it("acepta crear la irrigación sin hora de término y la deja Open", () => {
+    expect(validate(irrigation, { ...start, HoraTermino: null })).toEqual({});
+    expect(isOpen(irrigation, { ...start, HoraTermino: null })).toBe(true);
+  });
+
+  it("los registros con ambas horas quedan Closed", () => {
+    expect(isOpen(irrigation, { ...start, HoraTermino: "09:30" })).toBe(false);
+    expect(isOpen(LISTS.river, { Fecha: "2026-10-25", Hora: "07:00", Ml: 1 })).toBe(false);
+  });
+
+  it("revisa el formato de la hora de término si viene", () => {
+    expect(validate(irrigation, { ...start, HoraTermino: "9:3" })).toHaveProperty("HoraTermino");
+  });
+
+  it("el formulario nuevo deja vacía la hora de término", () => {
+    expect(emptyDraft(irrigation).HoraTermino).toBe("");
+    expect(emptyDraft(irrigation).HoraInicio).toMatch(/^\d{2}:\d{2}$/);
+  });
+
+  it("calcula la duración, también pasando la medianoche", () => {
+    expect(durationMinutes("07:00", "09:30")).toBe(150);
+    expect(durationMinutes("23:30", "00:15")).toBe(45);
+    expect(durationMinutes("07:00", null)).toBeNull();
+    expect(formatDuration(150)).toBe("2 h 30 min");
+    expect(formatDuration(45)).toBe("45 min");
+  });
+
+  it("calcula el tiempo que lleva abierta", () => {
+    expect(elapsedMinutes("2026-10-25", "07:00", new Date(2026, 9, 25, 8, 20))).toBe(80);
+  });
+
+  it("cerrar agrega solo la hora de término y quién cerró, sin marcar como modificado", () => {
+    expect(closedRecordFields("HoraTermino", "09:30", { uid: "u1", name: "Ana" })).toEqual({ HoraTermino: "09:30", CerradoPor: "Ana", closedBy: "u1" });
   });
 });

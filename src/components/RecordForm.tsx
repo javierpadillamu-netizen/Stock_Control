@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { lastReading, nowTime, today, validate, type Fields, type ListDef, type RecordItem } from "../schema";
+import { isOpen, lastReading, nowTime, today, validate, type Fields, type ListDef, type RecordItem } from "../schema";
 import { store } from "../data";
 import { Icon } from "./Icon";
 import { editedRecordFields, newRecordFields, type Author } from "../data/store";
@@ -24,7 +24,8 @@ export function RecordForm({ list, author, editing, onSaved }: Props) {
   // Fecha y hora automaticas: al registrar no se muestran y toman el momento en que se guarda
   const autoFields = editing ? [] : list.fields.filter((f) => f.auto);
   const computedFields = list.fields.filter((f) => f.computed);
-  const visible = list.fields.filter((f) => !autoFields.includes(f) && !f.computed);
+  // El campo de cierre (End time) solo aparece al editar; al registrar, el registro queda abierto
+  const visible = list.fields.filter((f) => !autoFields.includes(f) && !f.computed && (editing || !f.closing));
   const values = draftToFields(list, draft);
   function stamp(fields: Fields): Fields {
     const out = { ...fields };
@@ -86,7 +87,8 @@ export function RecordForm({ list, author, editing, onSaved }: Props) {
         ? await store.update(list, editing.id, editedRecordFields(toSave, author))
         : await store.create(list, newRecordFields(toSave, author));
       const when = autoFields.length > 0 ? ` on ${String(toSave.Fecha)} at ${String(toSave.Hora)}` : "";
-      setMessage({ ok: true, text: editing ? "Changes saved. The record is now marked as modified." : `Record saved${when}` });
+      const opened = !editing && isOpen(list, toSave) ? ". It stays Open until you close it." : "";
+      setMessage({ ok: true, text: editing ? "Changes saved. The record is now marked as modified." : `Record saved${when}${opened}` });
       if (!editing) {
         // Mantiene fecha y opciones; limpia los numeros para el siguiente registro
         const next = { ...draft };
