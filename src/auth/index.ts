@@ -14,9 +14,22 @@ export const authService: AuthService = isDemo
         let stop: (() => void) | null = null;
         let cancelled = false;
         cb({ status: "loading" });
-        void load().then((a) => {
-          if (!cancelled) stop = a.subscribe(cb);
-        });
+        load().then(
+          (a) => {
+            if (!cancelled) stop = a.subscribe(cb);
+          },
+          () => {
+            // No se pudo bajar el modulo de cuentas (version vieja en cache o sin red):
+            // se recarga una vez para traer la version publicada.
+            try {
+              if (sessionStorage.getItem("auth-reload")) return;
+              sessionStorage.setItem("auth-reload", "1");
+            } catch {
+              return;
+            }
+            window.location.reload();
+          },
+        );
         return () => {
           cancelled = true;
           stop?.();

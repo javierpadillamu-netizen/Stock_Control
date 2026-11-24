@@ -115,17 +115,35 @@ function Shell({ children, profile, onAccount }: { children: ReactNode; profile?
   );
 }
 
+// Si la carga tarda demasiado (sin conexion, cache vieja), se ofrece recargar
+const SLOW_MS = 10_000;
+
+function LoadingScreen() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setSlow(true), SLOW_MS);
+    return () => window.clearTimeout(t);
+  }, []);
+  return (
+    <Shell>
+      <main>
+        <p className="hint waiting">Loading…</p>
+        {slow && (
+          <div className="waiting">
+            <p className="hint">This is taking longer than usual. Check your connection and try again.</p>
+            <button className="primary" onClick={() => window.location.reload()}>
+              Reload
+            </button>
+          </div>
+        )}
+      </main>
+    </Shell>
+  );
+}
+
 export default function App() {
   const session = useSession();
-  if (session.status === "loading") {
-    return (
-      <Shell>
-        <main>
-          <p className="hint waiting">Loading…</p>
-        </main>
-      </Shell>
-    );
-  }
+  if (session.status === "loading") return <LoadingScreen />;
   if (session.status === "signedOut") {
     return (
       <Shell>
