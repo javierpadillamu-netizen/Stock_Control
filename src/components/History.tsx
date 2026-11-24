@@ -116,7 +116,10 @@ export function History({ list, author, canEdit }: { list: ListDef; author: Auth
             <div className="record-main">
               {closes &&
                 (isOpen(list, it.fields) ? <span className="status open">Open</span> : <span className="status closed">Closed</span>)}
-              {list.fields.map((f) => (
+              {list.fields
+                // Mientras esta Open no se muestran los campos que se completan al cerrar
+                .filter((f) => !(f.closing && isOpen(list, it.fields)))
+                .map((f) => (
                 <span key={f.key}>
                   <small>{labelFor(f, it.fields)}</small> {String(it.fields[f.key] ?? "")}
                 </span>
@@ -126,7 +129,7 @@ export function History({ list, author, canEdit }: { list: ListDef; author: Auth
                   <small>Duration</small> {formatDuration(durationMinutes(it.fields.HoraInicio, it.fields[closes.key])!)}
                 </span>
               )}
-              {list.meter && (
+              {list.meter && !isOpen(list, it.fields) && (
                 <span>
                   <small>{list.meter.usageLabel}</small> {usageOf(list, it.fields) ?? ""}
                 </span>
