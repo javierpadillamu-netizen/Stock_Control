@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { isDemo } from "./config";
-import { LISTS, today, type ListKey } from "./schema";
+import { LISTS, closingField, today, type ListKey, type RecordItem } from "./schema";
 import { RecordForm } from "./components/RecordForm";
 import { PondsForm } from "./components/PondsForm";
 import { History } from "./components/History";
+import { OpenRecords } from "./components/OpenRecords";
 import { Icon, type IconName } from "./components/Icon";
 import { Login } from "./components/Login";
 import { Account } from "./components/Account";
@@ -180,6 +181,10 @@ function Main({ profile }: { profile: Profile }) {
   const author = { uid: profile.uid, name: profile.name };
   const [screen, setScreen] = useState<Screen>(editor ? { s: "home" } : { s: "history", list: "irrigation" });
   const [denied, setDenied] = useState(false);
+  // Ultimo registro guardado en el formulario, para sumarlo a la lista de irrigaciones abiertas
+  const [added, setAdded] = useState<RecordItem | null>(null);
+  // Ultima irrigacion cerrada, para que el formulario tome su lectura como la anterior
+  const [closed, setClosed] = useState<RecordItem | null>(null);
 
   // Si le quitan el permiso de editor mientras esta en un formulario, vuelve al historial
   const blocked = !editor && (screen.s === "home" || screen.s === "menu" || screen.s === "form");
@@ -256,11 +261,12 @@ function Main({ profile }: { profile: Profile }) {
     subtitle = `New record · ${profile.name}`;
     body = (
       <>
+        {closingField(LISTS[key]) && <OpenRecords key={key} list={LISTS[key]} author={author} added={added} onClosed={setClosed} />}
         <div className="panel">
           {key === "ponds" ? (
             <PondsForm author={author} />
           ) : (
-            <RecordForm key={key} list={LISTS[key]} author={author} onSaved={() => {}} />
+            <RecordForm key={key} list={LISTS[key]} author={author} onSaved={setAdded} closed={closed} />
           )}
         </div>
         <button className="link" onClick={() => go({ s: "history", list: key })}>

@@ -86,6 +86,16 @@ service cloud.firestore {
         && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null)
         && request.resource.data.createdAt == resource.data.createdAt;
 
+      // Cerrar una irrigacion abierta (Open): solo se agregan la hora de termino, la lectura actual
+      // y quien la cerro. Es el segundo paso normal del registro, por eso no queda marcado como modificado.
+      allow update: if lista == 'irrigation' && puedeEditar()
+        && resource.data.get('HoraTermino', null) == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['HoraTermino', 'LecturaActual', 'CerradoPor', 'closedBy'])
+        && request.resource.data.HoraTermino is string
+        && request.resource.data.LecturaActual is number
+        && request.resource.data.closedBy == request.auth.uid
+        && request.resource.data.CerradoPor == perfil().name;
+
       allow delete: if false;
     }
   }

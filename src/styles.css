@@ -393,3 +393,16 @@ button.link:hover { text-decoration: underline; }
   border-bottom: 1px solid var(--mod-border); font-size: 0.92rem;
 }
 .update-banner button.primary { width: auto; flex: none; padding: 8px 16px; margin: 0; }
+
+/* Irrigaciones abiertas (Open) y cerradas (Closed) */
+.open-records { margin-bottom: 18px; }
+.open-records .record { padding-bottom: 12px; }
+.status {
+  display: inline-block; padding: 1px 8px; border-radius: 999px;
+  font-size: 0.8rem; font-weight: 700; letter-spacing: 0.02em;
+}
+.status.open { background: var(--ok-bg); color: var(--ok-text); }
+.status.closed { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+.open-records .close-btn { margin: 10px 0 0; }
+.close-form { margin-top: 10px; }
+.close-form .field { margin-bottom: 10px; }
