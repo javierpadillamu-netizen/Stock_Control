@@ -102,9 +102,10 @@ describe("lecturas de Irrigation", () => {
   const base = { Fecha: "2026-10-25", HoraInicio: "07:00", HoraTermino: "09:30", Pond: "8", Area: "Argyle", Subarea: "B1" };
   const rec = (id: string, fields: Record<string, string | number>, created = "2026-10-25T10:00:00Z") => ({ id, created, fields: { ...base, ...fields } });
 
-  it("exige ambas lecturas y que la actual no sea menor que la anterior", () => {
+  it("exige la lectura anterior al iniciar, la actual al cerrar, y que la actual no sea menor", () => {
     expect(validate(irrigation, { ...base, LecturaAnterior: 100, LecturaActual: 120.5 })).toEqual({});
-    expect(validate(irrigation, { ...base, LecturaAnterior: 100 })).toHaveProperty("LecturaActual");
+    expect(validate(irrigation, { ...base, LecturaAnterior: 100 })).toEqual({});
+    expect(validate(irrigation, { ...base, LecturaAnterior: 100 }, { closing: true })).toHaveProperty("LecturaActual");
     expect(validate(irrigation, { ...base, LecturaAnterior: 100, LecturaActual: 90 })).toHaveProperty("LecturaActual");
   });
 
@@ -138,11 +139,18 @@ describe("Surface Monitoring", () => {
 });
 
 describe("Irrigation en dos pasos (Open / Closed)", () => {
-  const start = { Fecha: "2026-10-25", HoraInicio: "07:00", Pond: "8", Area: "Argyle", Subarea: "B1", LecturaAnterior: 10, LecturaActual: 11 };
+  const start = { Fecha: "2026-10-25", HoraInicio: "07:00", Pond: "8", Area: "Argyle", Subarea: "B1", LecturaAnterior: 10 };
 
-  it("acepta crear la irrigación sin hora de término y la deja Open", () => {
-    expect(validate(irrigation, { ...start, HoraTermino: null })).toEqual({});
-    expect(isOpen(irrigation, { ...start, HoraTermino: null })).toBe(true);
+  it("acepta crear la irrigación sin hora de término ni lectura actual y la deja Open", () => {
+    expect(validate(irrigation, { ...start, HoraTermino: null, LecturaActual: null })).toEqual({});
+    expect(isOpen(irrigation, { ...start, HoraTermino: null, LecturaActual: null })).toBe(true);
+  });
+
+  it("al cerrar exige hora de término y lectura actual mayor o igual a la anterior", () => {
+    const errs = validate(irrigation, { ...start, HoraTermino: null, LecturaActual: null }, { closing: true });
+    expect(Object.keys(errs).sort()).toEqual(["HoraTermino", "LecturaActual"]);
+    expect(validate(irrigation, { ...start, HoraTermino: "09:00", LecturaActual: 9 }, { closing: true })).toHaveProperty("LecturaActual");
+    expect(validate(irrigation, { ...start, HoraTermino: "09:00", LecturaActual: 12.5 }, { closing: true })).toEqual({});
   });
 
   it("los registros con ambas horas quedan Closed", () => {
@@ -156,6 +164,7 @@ describe("Irrigation en dos pasos (Open / Closed)", () => {
 
   it("el formulario nuevo deja vacía la hora de término", () => {
     expect(emptyDraft(irrigation).HoraTermino).toBe("");
+    expect(emptyDraft(irrigation).LecturaActual).toBe("");
     expect(emptyDraft(irrigation).HoraInicio).toMatch(/^\d{2}:\d{2}$/);
   });
 
@@ -172,6 +181,6 @@ describe("Irrigation en dos pasos (Open / Closed)", () => {
   });
 
   it("cerrar agrega solo la hora de término y quién cerró, sin marcar como modificado", () => {
-    expect(closedRecordFields("HoraTermino", "09:30", { uid: "u1", name: "Ana" })).toEqual({ HoraTermino: "09:30", CerradoPor: "Ana", closedBy: "u1" });
+    expect(closedRecordFields({ HoraTermino: "09:30", LecturaActual: 12 }, { uid: "u1", name: "Ana" })).toEqual({ HoraTermino: "09:30", LecturaActual: 12, CerradoPor: "Ana", closedBy: "u1" });
   });
 });

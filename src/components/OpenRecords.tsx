@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
 import {
   closingField,
+  closingFields,
   elapsedMinutes,
   durationMinutes,
   formatDuration,
   isOpen,
   nowTime,
+  usageOf,
+  validate,
+  type Fields,
   type ListDef,
   type RecordItem,
 } from "../schema";
@@ -13,22 +17,25 @@ import { store } from "../data";
 import { closedRecordFields, type Author } from "../data/store";
 import { authErrorMessage } from "../auth";
 
-const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-
 interface Props {
   list: ListDef;
   author: Author;
   // Registro recien creado en el formulario: si quedo abierto, se agrega a la lista
   added: RecordItem | null;
+  // Avisa el registro cerrado, para que el formulario use su lectura como la anterior
+  onClosed?: (item: RecordItem) => void;
 }
 
 // Irrigaciones en curso (Open), arriba del formulario, cada una con su boton Close
-export function OpenRecords({ list, author, added }: Props) {
+export function OpenRecords({ list, author, added, onClosed }: Props) {
   const field = closingField(list);
+  const toFill = closingFields(list);
   const [items, setItems] = useState<RecordItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [closing, setClosing] = useState<string | null>(null);
-  const [endTime, setEndTime] = useState("");
+  // Valores del paso Close (End time y Current Reading), como texto del formulario
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [, setTick] = useState(0);
@@ -60,19 +67,40 @@ export function OpenRecords({ list, author, added }: Props) {
 
   function startClose(it: RecordItem) {
     setClosing(it.id);
-    setEndTime(nowTime());
+    // La hora de termino propone la hora actual; la lectura actual se escribe al cerrar
+    setDraft(Object.fromEntries(toFill.map((f) => [f.key, f.type === "time" ? nowTime() : ""])));
+    setErrors({});
     setDone(null);
     setError(null);
   }
 
+  function closingValues(): Fields {
+    const out: Fields = {};
+    for (const f of toFill) {
+      const raw = (draft[f.key] ?? "").trim();
+      out[f.key] = raw === "" ? null : f.type === "number" ? Number(raw.replace(",", ".")) : raw;
+    }
+    return out;
+  }
+
   async function confirm(it: RecordItem) {
-    if (!field || !TIME_RE.test(endTime)) return;
+    if (!field) return;
+    const values = closingValues();
+    const all = validate(list, { ...it.fields, ...values }, { closing: true });
+    const errs = Object.fromEntries(Object.entries(all).filter(([k]) => k in values));
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
     setSaving(true);
     try {
-      await store.update(list, it.id, closedRecordFields(field.key, endTime, author));
+      await store.update(list, it.id, closedRecordFields(values, author));
       setItems((prev) => (prev ?? []).filter((x) => x.id !== it.id));
-      const mins = durationMinutes(it.fields.HoraInicio, endTime);
-      setDone(`Closed at ${endTime}${mins !== null ? ` · ${formatDuration(mins)}` : ""}`);
+      onClosed?.({ ...it, fields: { ...it.fields, ...closedRecordFields(values, author) } });
+      const end = String(values[field.key]);
+      const mins = durationMinutes(it.fields.HoraInicio, end);
+      const used = list.meter ? usageOf(list, { ...it.fields, ...values }) : null;
+      setDone(
+        `Closed at ${end}${mins !== null ? ` · ${formatDuration(mins)}` : ""}${used !== null && list.meter ? ` · ${list.meter.usageLabel} ${used}` : ""}`,
+      );
       setClosing(null);
     } catch (e) {
       setError(authErrorMessage(e));
@@ -118,11 +146,26 @@ export function OpenRecords({ list, author, added }: Props) {
                     void confirm(it);
                   }}
                 >
-                  <div className="field">
-                    <label htmlFor={`end-${it.id}`}>{field.label}</label>
-                    <input id={`end-${it.id}`} type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-                  </div>
-                  <button type="submit" className="primary" disabled={saving || !TIME_RE.test(endTime)}>
+                  {toFill.map((cf) => {
+                    const id = `close-${cf.key}-${it.id}`;
+                    const prev = list.meter && cf.key === list.meter.current ? f[list.meter.previous] : null;
+                    return (
+                      <div key={cf.key} className={errors[cf.key] ? "field has-error" : "field"}>
+                        <label htmlFor={id}>{cf.label}</label>
+                        <input
+                          id={id}
+                          type={cf.type === "number" ? "text" : cf.type}
+                          inputMode={cf.type === "number" ? "decimal" : undefined}
+                          autoComplete="off"
+                          value={draft[cf.key] ?? ""}
+                          onChange={(e) => setDraft((d) => ({ ...d, [cf.key]: e.target.value }))}
+                        />
+                        {errors[cf.key] && <p className="error">{errors[cf.key]}</p>}
+                        {!errors[cf.key] && typeof prev === "number" && <p className="hint field-hint">Previous reading: {prev}</p>}
+                      </div>
+                    );
+                  })}
+                  <button type="submit" className="primary" disabled={saving}>
                     {saving ? "Closing…" : "Confirm close"}
                   </button>
                   <button type="button" className="link" onClick={() => setClosing(null)}>

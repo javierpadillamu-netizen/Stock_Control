@@ -115,8 +115,8 @@ export interface FieldDef {
   signed?: boolean;
   // Texto de varias lineas
   multiline?: boolean;
-  // Se completa al cerrar el registro (hora de termino de Irrigation): no aparece al crearlo,
-  // y mientras esta vacio el registro queda abierto (Open)
+  // Se completa al cerrar el registro (hora de termino y lectura actual de Irrigation): no aparece
+  // al crearlo. Mientras la hora de termino esta vacia, el registro queda abierto (Open)
   closing?: boolean;
 }
 
@@ -182,7 +182,7 @@ export const LISTS: Record<ListKey, ListDef> = {
         dependsOn: { key: "Area", options: AREAS, placeholder: "Select an area first" },
       },
       { key: "LecturaAnterior", label: "Previous Reading (ML)", type: "number" },
-      { key: "LecturaActual", label: "Current Reading (ML)", type: "number" },
+      { key: "LecturaActual", label: "Current Reading (ML)", type: "number", closing: true },
     ],
     meter: {
       previous: "LecturaAnterior",
@@ -282,13 +282,16 @@ export function optionsFor(field: FieldDef, values: Fields): string[] {
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+const isEmpty = (v: FieldValue | undefined) => v === null || v === undefined || v === "";
+
 // Devuelve un mensaje por cada campo con error; un objeto vacio si todo esta bien.
-export function validate(list: ListDef, values: Fields): Record<string, string> {
+// Los campos de cierre pueden quedar vacios, salvo al cerrar (closing: true).
+export function validate(list: ListDef, values: Fields, opts: { closing?: boolean } = {}): Record<string, string> {
   const errors: Record<string, string> = {};
   for (const f of list.fields) {
     const v = values[f.key];
-    if (v === null || v === undefined || v === "") {
-      if (f.optional || f.closing) continue;
+    if (isEmpty(v)) {
+      if (f.optional || (f.closing && !opts.closing)) continue;
       errors[f.key] = "Required";
       continue;
     }
@@ -303,7 +306,7 @@ export function validate(list: ListDef, values: Fields): Record<string, string> 
       errors[f.key] = `Exceeds the capacity of ${max} t`;
   }
   const m = list.meter;
-  if (m && !errors[m.previous] && !errors[m.current] && Number(values[m.current]) < Number(values[m.previous]))
+  if (m && !errors[m.previous] && !errors[m.current] && !isEmpty(values[m.current]) && Number(values[m.current]) < Number(values[m.previous]))
     errors[m.current] = "Must be equal to or greater than the previous reading";
   return errors;
 }
@@ -339,9 +342,14 @@ export function lastReading(list: ListDef, items: RecordItem[], values: Fields):
   return best;
 }
 
-// Campo que cierra el registro (End time en Irrigation), si la lista lo tiene
+// Campos que se completan al cerrar (End time y Current Reading en Irrigation)
+export function closingFields(list: ListDef): FieldDef[] {
+  return list.fields.filter((f) => f.closing);
+}
+
+// Campo que marca el cierre (End time en Irrigation), si la lista lo tiene
 export function closingField(list: ListDef): FieldDef | undefined {
-  return list.fields.find((f) => f.closing);
+  return list.fields.find((f) => f.closing && f.type === "time");
 }
 
 // Un registro sigue abierto (Open) mientras no tenga la hora de termino.
@@ -349,8 +357,7 @@ export function closingField(list: ListDef): FieldDef | undefined {
 export function isOpen(list: ListDef, fields: Fields): boolean {
   const f = closingField(list);
   if (!f) return false;
-  const v = fields[f.key];
-  return v === null || v === undefined || v === "";
+  return isEmpty(fields[f.key]);
 }
 
 function minutesOf(time: FieldValue): number | null {

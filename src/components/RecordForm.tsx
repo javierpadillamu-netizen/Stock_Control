@@ -13,9 +13,11 @@ interface Props {
   // Si viene un registro, el formulario lo edita y lo marca como modificado
   editing?: RecordItem;
   onSaved: (item: RecordItem) => void;
+  // Registro recien cerrado (Irrigation): su lectura actual pasa a ser la anterior del siguiente
+  closed?: RecordItem | null;
 }
 
-export function RecordForm({ list, author, editing, onSaved }: Props) {
+export function RecordForm({ list, author, editing, onSaved, closed }: Props) {
   const [draft, setDraft] = useState(() => (editing ? draftFrom(list, editing.fields) : emptyDraft(list)));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -53,6 +55,15 @@ export function RecordForm({ list, author, editing, onSaved }: Props) {
       alive = false;
     };
   }, [list, meter, editing]);
+
+  // Al cerrar una irrigacion, se actualiza la lista y, si la lectura anterior esta vacia, se completa
+  useEffect(() => {
+    if (!closed || !meter || editing) return;
+    const items = [closed, ...(saved ?? []).filter((it) => it.id !== closed.id)];
+    setSaved(items);
+    setDraft((d) => (d[meter.previous] === "" ? { ...d, [meter.previous]: previousFor(draftToFields(list, d), items) } : d));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closed]);
 
   const last = meter && !editing && saved ? lastReading(list, saved, values) : null;
 

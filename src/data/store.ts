@@ -35,8 +35,8 @@ export function inRange(item: RecordItem, range?: DateRange) {
   return f >= range.from && f <= range.to;
 }
 
-// Campos que se agregan al cerrar un registro abierto (End time de Irrigation). Cerrar es
-// el segundo paso normal del registro, no una correccion, asi que no lo marca como modificado.
-export function closedRecordFields(key: string, value: string, by: Author): Fields {
-  return { [key]: value, CerradoPor: by.name, closedBy: by.uid };
+// Campos que se agregan al cerrar un registro abierto (End time y Current Reading de Irrigation).
+// Cerrar es el segundo paso normal del registro, no una correccion, asi que no lo marca como modificado.
+export function closedRecordFields(values: Fields, by: Author): Fields {
+  return { ...values, CerradoPor: by.name, closedBy: by.uid };
 }

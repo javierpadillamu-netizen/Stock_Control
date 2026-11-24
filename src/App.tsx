@@ -165,6 +165,8 @@ function Main({ profile }: { profile: Profile }) {
   const [denied, setDenied] = useState(false);
   // Ultimo registro guardado en el formulario, para sumarlo a la lista de irrigaciones abiertas
   const [added, setAdded] = useState<RecordItem | null>(null);
+  // Ultima irrigacion cerrada, para que el formulario tome su lectura como la anterior
+  const [closed, setClosed] = useState<RecordItem | null>(null);
 
   // Si le quitan el permiso de editor mientras esta en un formulario, vuelve al historial
   const blocked = !editor && (screen.s === "home" || screen.s === "menu" || screen.s === "form");
@@ -241,12 +243,12 @@ function Main({ profile }: { profile: Profile }) {
     subtitle = `New record · ${profile.name}`;
     body = (
       <>
-        {closingField(LISTS[key]) && <OpenRecords key={key} list={LISTS[key]} author={author} added={added} />}
+        {closingField(LISTS[key]) && <OpenRecords key={key} list={LISTS[key]} author={author} added={added} onClosed={setClosed} />}
         <div className="panel">
           {key === "ponds" ? (
             <PondsForm author={author} />
           ) : (
-            <RecordForm key={key} list={LISTS[key]} author={author} onSaved={setAdded} />
+            <RecordForm key={key} list={LISTS[key]} author={author} onSaved={setAdded} closed={closed} />
           )}
         </div>
         <button className="link" onClick={() => go({ s: "history", list: key })}>
